@@ -1,5 +1,5 @@
 PROJECT = blokus
-SOURCES = tile.cc board.cc blokus_main.cc
+SOURCES = tile.cc board.cc game.cc blokus_main.cc
 OBJDIR = obj
 
 LIBS = -lglog -lgflags

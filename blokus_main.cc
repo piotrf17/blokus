@@ -1,64 +1,11 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
-#include <map>
 #include <memory>
 #include <set>
-#include <string>
-#include <vector>
 
-#include "board.h"
-#include "tile.h"
+#include "game.h"
 
 namespace blokus {
-
-class Player {
- public:
-  explicit Player(Color color) : color_(color) {}
-  
-  virtual bool SelectMove(const Board& board, Move* move, int* chosen_tile) = 0;
-
-  Color color() const { return color_; }
-  
- private:
-  Color color_;
-};
-
-class Game {
- public:
-  Game() {}
-  ~Game() {}
-
-  void AddPlayer(Color color, std::unique_ptr<Player> player) {
-    CHECK(players_.count(color) == 0) << "Already added a player for "
-                                      << ColorToString(color);
-    players_[color] = std::move(player);
-  }
-
-  void Play() {
-    static const std::vector<Color> kTurnOrder = {BLUE, YELLOW, RED, GREEN};
-    while (true) {
-      for (Color color : kTurnOrder) {
-        blokus::Move move;
-        int tile;
-        if (players_[color]->SelectMove(board, &move, &tile)) {
-          if (!board.Place(blokus::kTiles[tile], color, move)) {
-            LOG(FATAL) << ColorToString(color)
-                       << " wants to play an invalid move: "
-                       << move.DebugString();
-          }
-        } else {
-          printf("%s is out of moves\n", blokus::ColorToString(color).c_str());
-        }
-        board.Print(false);
-        getchar();
-      }
-    }
-  }
-  
- private:
-  std::map<Color, std::unique_ptr<Player>> players_;
-  Board board;
-};
 
 class RandomAI : public Player {
  public:
