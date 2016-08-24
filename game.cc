@@ -21,7 +21,7 @@ void Game::Play() {
   CHECK(players_.size() == 4) << "Not enough players.";
   while (true) {
     for (Color color : kTurnOrder) {
-      blokus::Move move;
+      Move move;
       int tile;
       if (players_[color]->SelectMove(board, &move, &tile)) {
         if (!board.Place(blokus::kTiles[tile], color, move)) {
@@ -32,8 +32,11 @@ void Game::Play() {
       } else {
         printf("%s is out of moves\n", blokus::ColorToString(color).c_str());
       }
+      for (auto& observer : observers_) {
+        observer(move, tile);
+      }
+      // TODO(piotrf): make board print an observer.
       board.Print(false);
-      getchar();
     }
   }
 }

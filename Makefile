@@ -1,13 +1,13 @@
 PROJECT = blokus
-SOURCES = tile.cc board.cc game.cc blokus_main.cc
+SOURCES = stringpiece.cc tile.cc board.cc game.cc http_server.cc blokus_main.cc
 OBJDIR = obj
 
-LIBS = -lglog -lgflags
+LIBS = -lglog -lgflags -lmicrohttpd -ljsoncpp
 
 LD = g++
 CXX = g++
 
-CXX_FLAGS = -std=c++14 -Wall -Wextra -Werror -O2 -g
+CXX_FLAGS = -std=c++1y -Wall -Wextra -Werror -O2 -g
 LD_FLAGS = $(LIBS)
 
 #=========== Implementation details below ==============#
@@ -24,4 +24,4 @@ $(OBJDIR)/%.o: %.cc
 	$(CXX) $(CXX_FLAGS) -c -o $@ $<
 
 clean:
-	rrm -rf $(OBJDIR); rm -f $(PROJECT)
+	rm -rf $(OBJDIR); rm -f $(PROJECT)

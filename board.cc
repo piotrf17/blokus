@@ -50,10 +50,10 @@ std::string Move::DebugString() const {
 
 std::string ColorToString(Color c) {
   switch(c) {
-    case BLUE: return "Blue";
-    case YELLOW: return "Yellow";
-    case RED: return "Red";
-    case GREEN: return "Green";
+    case BLUE: return "blue";
+    case YELLOW: return "yellow";
+    case RED: return "red";
+    case GREEN: return "green";
     default:
       LOG(FATAL) << "Unknown color: " << c;
   }
