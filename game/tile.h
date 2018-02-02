@@ -1,5 +1,5 @@
-#ifndef BLOKUS_TILE_H
-#define BLOKUS_TILE_H
+#ifndef BLOKUS_GAME_TILE_H
+#define BLOKUS_GAME_TILE_H
 
 namespace blokus {
 

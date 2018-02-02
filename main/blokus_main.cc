@@ -7,8 +7,8 @@
 #include <glog/logging.h>
 #include <jsoncpp/json/writer.h>
 
-#include "http_server.h"
-#include "game.h"
+#include "game/game.h"
+#include "util/http_server.h"
 
 namespace blokus {
 
@@ -135,11 +135,12 @@ int main(int argc, char **argv) {
   google::InitGoogleLogging(argv[0]);  
 
   blokus::HttpServer server;
-  server.RegisterStaticHandler("/", "index.html");
-  server.RegisterStaticHandler("/blokus.js", "blokus.js");
-  server.RegisterStaticHandler("/tiles.js", "tiles.js");
-  server.RegisterStaticHandler("/board.js", "board.js");
-  server.RegisterStaticHandler("/jquery-3.1.0.js", "jquery-3.1.0.js");
+  server.RegisterStaticHandler("/", "main/static/index.html");
+  server.RegisterStaticHandler("/blokus.js", "main/static/blokus.js");
+  server.RegisterStaticHandler("/tiles.js", "main/static/tiles.js");
+  server.RegisterStaticHandler("/board.js", "main/static/board.js");
+  server.RegisterStaticHandler("/jquery-3.1.0.js",
+                               "main/static/jquery-3.1.0.js");
   
   CHECK(server.Start());
   LOG(INFO) << "Server is running on localhost:7777";

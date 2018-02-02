@@ -1,11 +1,11 @@
-#ifndef BLOKUS_BOARD_H_
-#define BLOKUS_BOARD_H_
+#ifndef BLOKUS_GAME_BOARD_H_
+#define BLOKUS_GAME_BOARD_H_
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
-#include "tile.h"
+#include "game/tile.h"
 
 namespace blokus {
 

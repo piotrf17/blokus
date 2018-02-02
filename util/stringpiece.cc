@@ -4,8 +4,7 @@
 
 #include <ostream>
 
-#include "stringpiece.h"
-//#include "util/util.h"
+#include "util/stringpiece.h"
 
 using std::string;
 

@@ -1,5 +1,5 @@
-#ifndef BLOKUS_HTTP_SERVER_H
-#define BLOKUS_HTTP_SERVER_H
+#ifndef BLOKUS_UTIL_HTTP_SERVER_H
+#define BLOKUS_UTIL_HTTP_SERVER_H
 
 #include <functional>
 #include <map>
@@ -9,7 +9,7 @@
 #include <jsoncpp/json/value.h>
 #include <microhttpd.h>
 
-#include "stringpiece.h"
+#include "util/stringpiece.h"
 
 namespace blokus {
 

@@ -1,4 +1,4 @@
-#include "tile.h"
+#include "game/tile.h"
 
 namespace blokus {
 

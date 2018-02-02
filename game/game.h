@@ -1,12 +1,12 @@
-#ifndef BLOKUS_GAME_H_
-#define BLOKUS_GAME_H_
+#ifndef BLOKUS_GAME_GAME_H_
+#define BLOKUS_GAME_GAME_H_
 
 #include <map>
 #include <memory>
 #include <vector>
 
-#include "board.h"
-#include "player.h"
+#include "game/board.h"
+#include "game/player.h"
 
 namespace blokus {
 
