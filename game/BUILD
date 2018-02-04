@@ -3,12 +3,12 @@
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-   name = "board",
-   srcs = ["board.cc"],
-   hdrs = ["board.h"],
-   deps = [
-       ":tile",
-   ]
+    name = "board",
+    srcs = ["board.cc"],
+    hdrs = ["board.h"],
+    deps = [
+        ":tile",
+    ],
 )
 
 cc_library(
@@ -30,4 +30,7 @@ cc_library(
 cc_library(
     name = "player",
     hdrs = ["player.h"],
+    deps = [
+        ":board",
+    ],
 )

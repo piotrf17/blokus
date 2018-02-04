@@ -7,14 +7,6 @@ cc_library(
     srcs = ["http_server.cc"],
     hdrs = ["http_server.h"],
     deps = [
-        ":stringpiece",
+        "@com_google_absl//absl/strings",
     ],
-)
-  
-
-# TODO(piotrf): start using absl::string_view.
-cc_library(
-    name = "stringpiece",
-    srcs = ["stringpiece.cc"],
-    hdrs = ["stringpiece.h"],
 )

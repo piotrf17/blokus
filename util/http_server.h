@@ -6,10 +6,9 @@
 #include <memory>
 #include <string>
 
+#include "absl/strings/string_view.h"
 #include <jsoncpp/json/value.h>
 #include <microhttpd.h>
-
-#include "util/stringpiece.h"
 
 namespace blokus {
 
@@ -22,11 +21,11 @@ class HttpServer {
   
   class Request {
    public:
-    Request(StringPiece method, StringPiece version) :
-      method_(method), version_(version) {}
+    Request(absl::string_view method, absl::string_view version) :
+        method_(method), version_(version) {}
     
-    StringPiece method() const { return method_; }
-    StringPiece version() const { return version_; }
+    absl::string_view method() const { return method_; }
+    absl::string_view version() const { return version_; }
 
     // TODO(piotrf): something better than string.
     const std::string& response() const { return response_; }
@@ -46,8 +45,8 @@ class HttpServer {
     
    private:
     // None of these are owned by HttpRequest.
-    StringPiece method_;
-    StringPiece version_;
+    absl::string_view method_;
+    absl::string_view version_;
     int status_;
     std::string response_;
     std::unique_ptr<Json::Value> json_;
@@ -56,8 +55,8 @@ class HttpServer {
   typedef std::function<void(Request*)> HandlerCB;
 
   // TODO(piotrf): serve static content from an entire directory.
-  void RegisterStaticHandler(StringPiece uri, StringPiece path);
-  void RegisterHandler(StringPiece uri, HandlerCB handler);
+  void RegisterStaticHandler(absl::string_view uri, absl::string_view path);
+  void RegisterHandler(absl::string_view uri, HandlerCB handler);
 
   // Start the background server thread, returns false on error.
   bool Start();

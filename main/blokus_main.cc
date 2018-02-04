@@ -3,36 +3,16 @@
 #include <mutex>
 #include <set>
 
+#include "absl/memory/memory.h"
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <jsoncpp/json/writer.h>
 
+#include "ai/random.h"
 #include "game/game.h"
 #include "util/http_server.h"
 
 namespace blokus {
-
-class RandomAI : public Player {
- public:
-  RandomAI(Color color) : Player(color) {}
-
-  bool SelectMove(const Board& board, Move* move, int* chosen_tile) {
-    for (int tile = 20; tile >= 0; tile --) {
-      if (played_tiles.count(tile) > 0) continue;
-      auto moves = board.PossibleMoves(kTiles[tile], color());
-      if (moves.size() > 0) {
-        *move = moves[rand() % moves.size()];
-        *chosen_tile = tile;
-        played_tiles.insert(tile);
-        return true;
-      }
-    }
-    return false;
-  }
-
- private:
-  std::set<int> played_tiles;
-};
 
 class WebPlayer : public Player {
  public:
@@ -147,17 +127,13 @@ int main(int argc, char **argv) {
 
   blokus::Game game;
   game.AddPlayer(blokus::BLUE,
-                 std::unique_ptr<blokus::WebPlayer>(
-                     new blokus::WebPlayer(blokus::BLUE, &server)));
+                 absl::make_unique<blokus::WebPlayer>(blokus::BLUE, &server));
   game.AddPlayer(blokus::YELLOW,
-                 std::unique_ptr<blokus::RandomAI>(
-                     new blokus::RandomAI(blokus::YELLOW)));
+                 absl::make_unique<blokus::RandomAI>(blokus::YELLOW));
   game.AddPlayer(blokus::RED,
-                 std::unique_ptr<blokus::RandomAI>(
-                     new blokus::RandomAI(blokus::RED)));
+                 absl::make_unique<blokus::RandomAI>(blokus::RED));
   game.AddPlayer(blokus::GREEN,
-                 std::unique_ptr<blokus::RandomAI>(
-                     new blokus::RandomAI(blokus::GREEN)));
+                 absl::make_unique<blokus::RandomAI>(blokus::GREEN));  
 
   blokus::MoveForwarder forwarder;
   game.AddObserver([&forwarder](const blokus::Move& move, int tile) {

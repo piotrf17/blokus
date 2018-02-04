@@ -1,7 +1,7 @@
 #ifndef BLOKUS_PLAYER_H_
 #define BLOKUS_PLAYER_H_
 
-#include "board.h"
+#include "game/board.h"
 
 namespace blokus {
   

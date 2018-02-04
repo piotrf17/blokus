@@ -16,15 +16,15 @@ HttpServer::~HttpServer() {
   Shutdown();
 }
 
-void HttpServer::RegisterStaticHandler(StringPiece uri, StringPiece path) {
+void HttpServer::RegisterStaticHandler(absl::string_view uri, absl::string_view path) {
   CHECK(handlers_.count(uri.data()) == 0);
-  handlers_[uri.ToString()].static_path = path.ToString();
+  handlers_[std::string(uri)].static_path = std::string(path);
 }
 
-void HttpServer::RegisterHandler(StringPiece uri, HandlerCB handler) {
+void HttpServer::RegisterHandler(absl::string_view uri, HandlerCB handler) {
   // TODO(piotrf): do some verification on the uri.
   CHECK(handlers_.count(uri.data()) == 0);
-  handlers_[uri.ToString()].handler = handler;
+  handlers_[std::string(uri)].handler = handler;
 }
 
 bool HttpServer::Start() {
@@ -70,8 +70,8 @@ class PostProcessor {
     return nullptr;
   }
 
-  void AddData(StringPiece upload_data) {
-    data_ += upload_data.ToString();
+  void AddData(absl::string_view upload_data) {
+    data_ += std::string(upload_data);
   }
 
   bool Finalize() {
@@ -121,7 +121,7 @@ int HttpServer::HandleRequest(
     } else {
       if (*upload_data_size != 0) {
         server->post_processor_->AddData(
-            StringPiece(upload_data, *upload_data_size));
+            absl::string_view(upload_data, *upload_data_size));
         // TODO(piotrf): above should return how much we eat up.
         *upload_data_size = 0;
         return MHD_YES;
