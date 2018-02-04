@@ -10,6 +10,8 @@ int main(int argc, char **argv) {
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
 
+  srand(time(NULL)); // TODO(piotrf): set via flag.
+
   blokus::Game game;
   game.AddPlayer(blokus::BLUE,
                  absl::make_unique<blokus::RandomAI>(blokus::BLUE));
@@ -20,5 +22,7 @@ int main(int argc, char **argv) {
   game.AddPlayer(blokus::GREEN,
                  absl::make_unique<blokus::RandomAI>(blokus::GREEN));
 
+  game.Play();
+  
   return 0;
 }

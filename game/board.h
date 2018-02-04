@@ -1,7 +1,6 @@
 #ifndef BLOKUS_GAME_BOARD_H_
 #define BLOKUS_GAME_BOARD_H_
 
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -9,28 +8,11 @@
 
 namespace blokus {
 
-// Coord represents a coordinate on the board; (0,0) is taken as the upper-left.
-struct Coord {
-  Coord() {
-    c[0] = 0;
-    c[1] = 0;
-  }
-  Coord(uint8_t x, uint8_t y) {
-    c[0] = x;
-    c[1] = y;
-  }
-
-  uint8_t operator[](size_t i) const { return c[i]; }
-  uint8_t& operator[](size_t i) { return c[i]; }
-  
-  uint8_t c[2];
-};
-
 // Move represents how to place a Tile on the board, although it does not
 // include the tile itself.
 struct Move {
   Coord coord;
-  int rotation;
+  int rotation;  // 0..3
   bool flip;
   std::string DebugString() const;
 };

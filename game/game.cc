@@ -1,5 +1,7 @@
 #include "game/game.h"
 
+#include <set>
+
 #include <glog/logging.h>
 
 namespace blokus {
@@ -19,18 +21,32 @@ void Game::AddPlayer(Color color, std::unique_ptr<Player> player) {
 void Game::Play() {
   static const std::vector<Color> kTurnOrder = {BLUE, YELLOW, RED, GREEN};
   CHECK(players_.size() == 4) << "Not enough players.";
-  while (true) {
+  
+  std::set<Color> players_with_moves = {BLUE, YELLOW, RED, GREEN};
+  std::map<Color, std::set<int>> played_tiles;
+  std::map<Color, bool> played_one_last;
+  
+  while (!players_with_moves.empty()) {
     for (Color color : kTurnOrder) {
       Move move;
       int tile;
       if (players_[color]->SelectMove(board, &move, &tile)) {
-        if (!board.Place(blokus::kTiles[tile], color, move)) {
+        printf("%s played at %s\n", ColorToString(color).c_str(),
+               move.DebugString().c_str());
+        if (!board.Place(kTiles[tile], color, move)) {
           LOG(FATAL) << ColorToString(color)
                      << " wants to play an invalid move: "
                      << move.DebugString();
         }
+        played_tiles[color].insert(tile);
+        if (tile == 0) {
+          played_one_last[color] = true;
+        } else {
+          played_one_last[color] = false;
+        }
       } else {
-        printf("%s is out of moves\n", blokus::ColorToString(color).c_str());
+        players_with_moves.erase(color);
+        printf("%s is out of moves\n", ColorToString(color).c_str());
       }
       for (auto& observer : observers_) {
         observer(move, tile);
@@ -38,6 +54,23 @@ void Game::Play() {
       // TODO(piotrf): make board print an observer.
       board.Print(false);
     }
+  }
+
+  printf("Game finished!\n");
+
+  // Compute the scores.
+  for (Color color : kTurnOrder) {
+    int score = 0;
+    for (int tile = 0; tile < 21; ++tile) {
+      if (!played_tiles[color].count(tile)) {
+        score -= kTiles[tile].Size();
+      }
+    }
+    if (score == 0) {
+      if (played_one_last[color]) score = 20;
+      else score = 15;
+    }
+    printf("Final score for %s is %d\n", ColorToString(color).c_str(), score);
   }
 }
 

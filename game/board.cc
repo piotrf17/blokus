@@ -13,26 +13,7 @@ namespace {
 // tile.
 // TODO(piotrf): consider exposing this as a public api.
 std::vector<Coord> PlacedTile(const Tile& tile, const Move& move) {
-  std::vector<Coord> coors;
-  for (int i = 0; i < 5; ++i) {
-    for (int j = 0; j < 5; ++j) {
-      if (tile[i][j]) {
-        Coord c;
-        switch (move.rotation) {
-          case 0: c[0] = i; c[1] = j; break;
-          case 1: c[0] = -j; c[1] = i; break;
-          case 2: c[0] = -i; c[1] = -j; break;
-          case 3: c[0] = j; c[1] = -i; break;
-          default:
-            LOG(FATAL) << "Unknown rotation: " << move.rotation;
-        }
-        if (move.flip) {
-          c[0] = -c[0];
-        }
-        coors.push_back(std::move(c));
-      }
-    }
-  }
+  std::vector<Coord> coors = tile.Transform(move.rotation, move.flip);
   for (auto& coor : coors) {
     coor[0] += move.coord[0];
     coor[1] += move.coord[1];

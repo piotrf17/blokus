@@ -15,7 +15,7 @@ class RandomAI : public Player {
   bool SelectMove(const Board& board, Move* move, int* chosen_tile) override;
 
  private:
-  std::set<int> played_tiles;
+  std::set<int> played_tiles_;
 };
 
 }  // namespace blokus
