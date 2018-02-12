@@ -136,9 +136,12 @@ int main(int argc, char **argv) {
                  absl::make_unique<blokus::RandomAI>(blokus::GREEN));  
 
   blokus::MoveForwarder forwarder;
-  game.AddObserver([&forwarder](const blokus::Move& move, int tile) {
+  game.AddObserver([&forwarder](const blokus::Board& board,
+                                const blokus::Move& move,
+                                int tile) {
       forwarder.NewMove(move, tile);
     });
+  game.AddObserver(blokus::BoardPrintingObserver());
   server.RegisterHandler(
       "/game/next_move",
       [&forwarder](blokus::HttpServer::Request* request) {

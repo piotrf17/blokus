@@ -19,6 +19,7 @@ cc_binary(
         "//ai:random",
         "//game:game",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/time",
     ],
     linkopts = ["-lglog -lgflags"],
 )

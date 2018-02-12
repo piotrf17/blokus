@@ -49,6 +49,7 @@ class Board {
 
   // Print the board to stdout, with terminal colors.
   // If debug=true, also print out representiations of frontier_ and allowed_.
+  // TODO(piotrf): return a string instead.
   void Print(bool debug = false) const;
   
  private:

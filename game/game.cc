@@ -18,7 +18,7 @@ void Game::AddPlayer(Color color, std::unique_ptr<Player> player) {
   players_[color] = std::move(player);
 }
 
-void Game::Play() {
+GameResult Game::Play() {
   static const std::vector<Color> kTurnOrder = {BLUE, YELLOW, RED, GREEN};
   CHECK(players_.size() == 4) << "Not enough players.";
   
@@ -30,10 +30,8 @@ void Game::Play() {
     for (Color color : kTurnOrder) {
       Move move;
       int tile;
-      if (players_[color]->SelectMove(board, &move, &tile)) {
-        printf("%s played at %s\n", ColorToString(color).c_str(),
-               move.DebugString().c_str());
-        if (!board.Place(kTiles[tile], color, move)) {
+      if (players_[color]->SelectMove(board_, &move, &tile)) {
+        if (!board_.Place(kTiles[tile], color, move)) {
           LOG(FATAL) << ColorToString(color)
                      << " wants to play an invalid move: "
                      << move.DebugString();
@@ -46,18 +44,15 @@ void Game::Play() {
         }
       } else {
         players_with_moves.erase(color);
-        printf("%s is out of moves\n", ColorToString(color).c_str());
       }
       for (auto& observer : observers_) {
-        observer(move, tile);
+        observer(board_, move, tile);
       }
-      // TODO(piotrf): make board print an observer.
-      board.Print(false);
     }
   }
 
-  printf("Game finished!\n");
-
+  GameResult result;
+  
   // Compute the scores.
   for (Color color : kTurnOrder) {
     int score = 0;
@@ -70,10 +65,20 @@ void Game::Play() {
       if (played_one_last[color]) score = 20;
       else score = 15;
     }
-    printf("Final score for %s is %d\n", ColorToString(color).c_str(), score);
+    result.scores[color] = score;
   }
+
+  return result;
 }
 
+ObserverFunc BoardPrintingObserver(bool include_debug) {
+  return [include_debug](const Board& board, const Move& move, int tile) {
+    // TODO(piotrf): need to pass color to this observer.
+    //    printf("%s played at %s\n", ColorToString(color).c_str(),
+    //           move.DebugString().c_str());
+    board.Print(include_debug);
+  };
+}
 
 
 }  // namespace blokus

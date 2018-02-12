@@ -6,3 +6,8 @@ local_repository(
   # NOTE: Bazel paths must be absolute paths. E.g., you can't use ~/Source
   path = "/home/piotrf/source/abseil-cpp",
 )
+
+local_repository(
+  name = "com_googlesource_code_cctz",
+  path = "/home/piotrf/source/cctz",
+)
