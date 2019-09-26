@@ -104,6 +104,8 @@ int HttpServer::HandleRequest(
     size_t* upload_data_size, void** con_cls __attribute__ ((unused))) {
   HttpServer* server = static_cast<HttpServer*>(cls);
 
+  VLOG(1) << method << " " << url;
+
   // TODO(piotrf): url params parsing.
   if (server->handlers_.count(url) == 0) {
     LOG(INFO) << "404 for url: " << url;
@@ -160,6 +162,8 @@ int HttpServer::HandleRequest(
       if (fd == -1) {
         // TODO(piotrf): not really 404, more like 500. Need a generic error
         // handler.
+        VLOG(1) << "No file found for static path: "
+                << info.static_path.c_str();
         return server->Return404(connection);
       }
       struct stat s;

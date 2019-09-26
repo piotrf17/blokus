@@ -4,6 +4,7 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
+#include "ai/mcts.h"
 #include "ai/random.h"
 #include "game/game.h"
 
@@ -27,7 +28,7 @@ int main(int argc, char **argv) {
   for (int i = 0; i < FLAGS_num_games; ++i) {
     blokus::Game game;
     game.AddPlayer(blokus::BLUE,
-                   absl::make_unique<blokus::RandomAI>(blokus::BLUE));
+                   absl::make_unique<blokus::MctsAI>(blokus::BLUE));
     game.AddPlayer(blokus::YELLOW,
                    absl::make_unique<blokus::RandomAI>(blokus::YELLOW));
     game.AddPlayer(blokus::RED,

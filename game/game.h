@@ -1,6 +1,7 @@
 #ifndef BLOKUS_GAME_GAME_H_
 #define BLOKUS_GAME_GAME_H_
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <vector>

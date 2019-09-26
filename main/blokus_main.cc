@@ -1,7 +1,9 @@
+#include <chrono>
 #include <list>
 #include <memory>
 #include <mutex>
 #include <set>
+#include <thread>
 
 #include "absl/memory/memory.h"
 #include <gflags/gflags.h>
@@ -31,6 +33,7 @@ class WebPlayer : public Player {
     LOG(INFO) << ColorToString(color()) << " is waiting for a UI move.";
     while (true) {
       std::lock_guard<std::mutex> lock(m_);
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
       if (move_ready_) break;
     }
     *move = move_;
