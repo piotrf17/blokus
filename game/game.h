@@ -1,51 +1,58 @@
 #ifndef BLOKUS_GAME_GAME_H_
 #define BLOKUS_GAME_GAME_H_
 
-#include <functional>
 #include <map>
-#include <memory>
+#include <set>
 #include <vector>
 
 #include "game/board.h"
-#include "game/player.h"
 
 namespace blokus {
 
-// Interface for observers. After every move, the observer will be called
-// with the latest move as well as the current board state.
-// TODO(piotrf): how to represent no move?
-typedef std::function<void(const Board& board, const Move& move,
-                           int tile)> ObserverFunc;
-
+// The final result of the game.
 struct GameResult {
   std::map<Color, int> scores;
+  Color winner;
 };
 
-// Class for managing a game of Blokus. Currently only handles 4 player games.
+// Manages game state beyond the board, e.g. current player, tiles held, etc.
 class Game {
  public:
   Game();
-  ~Game();
+  
+  // Make a move for the current player color.
+  // If the move is valid, returns true and advances to the next player.
+  // Otherwise returns false and stays in the same state.
+  bool MakeMove(const Move& move);
 
-  // Add a player of the given color to the game.
-  void AddPlayer(Color color, std::unique_ptr<Player> player);
+  // Returns a list of possible moves that the current player color can play.
+  std::vector<Move> PossibleMoves() const;
 
-  // Add an observer, will be called after every move.
-  void AddObserver(ObserverFunc observer) {
-    observers_.push_back(observer);
-  }
+  // Returns true if the game is finished.
+  bool Finished() const;
 
-  // Play the game until completion.
-  GameResult Play();
+  // Returns the final result of the game.
+  // Must have Finished() == true.
+  GameResult Result() const;
+
+  Color current_color() const { return current_color_; }
+  const Board& board() const { return board_; }
+  const std::vector<Move>& moves() const { return moves_; }
   
  private:
-  std::map<Color, std::unique_ptr<Player>> players_;
-  std::vector<ObserverFunc> observers_;
+  // The color of the current player, must match the next call to Move().
+  Color current_color_ = BLUE;
+  // The game board.
   Board board_;
+  // List of all played moves.
+  std::vector<Move> moves_;
+  // Map from color to a bool per tile. True means the tile hasn't been played.
+  std::map<Color, std::vector<bool>> player_tiles_;
+  // Set of all players who have not yet passed.
+  std::set<Color> players_with_moves_;
+  // Set of players who played the '1' tile as their last move.
+  std::set<Color> played_one_last_;
 };
-
-// Observer that prints the board to stdout.
-ObserverFunc BoardPrintingObserver(bool include_debug = false);
 
 }  // namespace blokus
 

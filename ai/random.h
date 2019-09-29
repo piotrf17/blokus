@@ -12,7 +12,7 @@ class RandomAI : public Player {
  public:
   explicit RandomAI(Color color) : Player(color) {}
 
-  bool SelectMove(const Board& board, Move* move, int* chosen_tile) override;
+  Move SelectMove(const Game& game) override;
 
  private:
   std::set<int> played_tiles_;

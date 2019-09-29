@@ -3,6 +3,9 @@
 #include <cstring>
 #include <glog/logging.h>
 
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+
 #define ANSI_COLOR_RESET   "\x1b[0m"
 
 namespace blokus {
@@ -12,21 +15,26 @@ namespace {
 // Returns all translated, rotated, and flipped coordinates for the placed
 // tile.
 // TODO(piotrf): consider exposing this as a public api.
-std::vector<Coord> PlacedTile(const Tile& tile, const Move& move) {
-  std::vector<Coord> coors = tile.Transform(move.rotation, move.flip);
+std::vector<Coord> PlacedTile(const Tile& tile, const Placement& placement) {
+  std::vector<Coord> coors = tile.Transform(placement.rotation, placement.flip);
   for (auto& coor : coors) {
-    coor[0] += move.coord[0];
-    coor[1] += move.coord[1];
+    coor[0] += placement.coord[0];
+    coor[1] += placement.coord[1];
   }
   return coors;
 }
 
 }  // namespace
 
-std::string Move::DebugString() const {
-  char output[12];
-  snprintf(output, 12, "(%2d,%2d) %d %d", coord[0], coord[1], rotation, flip);
-  return output;
+Color NextColor(Color c) {
+  switch(c) {
+    case BLUE: return YELLOW;
+    case YELLOW: return RED;
+    case RED: return GREEN;
+    case GREEN: return BLUE;
+    default:
+      LOG(FATAL) << "Unknown color: " << c;
+  }
 }
 
 std::string ColorToString(Color c) {
@@ -51,6 +59,26 @@ std::string AnsiColor(Color c) {
   }
 }
 
+std::string Placement::DebugString() const {
+  return absl::StrFormat("(%2d,%2d) %d %d", coord[0], coord[1], rotation, flip);
+}
+
+Move Move::EmptyMove(Color color) {
+  Move move;
+  move.color = color;
+  move.tile = -1;
+  return move;
+}
+
+std::string Move::DebugString() const {
+  if (tile == -1) {
+    return absl::StrCat(ColorToString(color), " played pass");
+  } else {
+    return absl::StrCat(ColorToString(color), " played tile ", tile, " at ",
+                        placement.DebugString());
+  }
+}
+
 Board::Board() {
   // Initially, there are no pieces on the board.
   memset(pieces_, 0, kWidth * kHeight * sizeof(uint8_t));
@@ -71,11 +99,9 @@ Board::Board() {
 Board::~Board() {
 }
 
-// Returns true if it is possible to place the given tile, of the given color,
-// in the given move, respecting geometry of the board and rules of the game.
-bool Board::IsPossible(const Tile& tile, Color color, const Move& move) const {
+bool Board::IsPossible(const Move& move) const {
   bool contains_frontier = false;
-  for (const Coord& coord : PlacedTile(tile, move)) {
+  for (const Coord& coord : PlacedTile(kTiles[move.tile], move.placement)) {
     int x = coord[0];
     int y = coord[1];
 
@@ -84,11 +110,11 @@ bool Board::IsPossible(const Tile& tile, Color color, const Move& move) const {
     if (y < 0 || y > kHeight - 1) return false;
 
     // Verify that we are allowed to move here.
-    if ((allowed_[x][y] & color) == 0) return false;
+    if ((allowed_[x][y] & move.color) == 0) return false;
 
     // Keep track of whether or not we touch the frontier. We must touch in at
     // least on place.
-    contains_frontier |= frontier_[coord[0]][coord[1]] & color;
+    contains_frontier |= frontier_[coord[0]][coord[1]] & move.color;
   }
   return contains_frontier;
 }
@@ -109,10 +135,12 @@ std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
       for (int rotation = 0; rotation < 4; rotation++) {
         for (bool flip : {false, true}) {
           Move move;
-          move.coord = Coord(x, y);
-          move.rotation = rotation;
-          move.flip = flip;
-          if (IsPossible(tile, color, move)) {
+          move.tile = tile.index();
+          move.color = color;
+          move.placement.coord = Coord(x, y);
+          move.placement.rotation = rotation;
+          move.placement.flip = flip;
+          if (IsPossible(move)) {
             moves.push_back(std::move(move));
           }
         }
@@ -123,13 +151,13 @@ std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
   return moves;
 }
 
-bool Board::Place(const Tile& tile, Color color, const Move& move) {
-  if (!IsPossible(tile, color, move)) {
+bool Board::MakeMove(const Move& move) {
+  if (!IsPossible(move)) {
     return false;
   }
-  std::vector<Coord> coords = PlacedTile(tile, move);
+  std::vector<Coord> coords = PlacedTile(kTiles[move.tile], move.placement);
   for (const Coord& coord : coords) {
-    pieces_[coord[0]][coord[1]] = color;
+    pieces_[coord[0]][coord[1]] = move.color;
   }
   // Update frontier and allowed based on current state of pieces_.
   for (int i = 0; i < kWidth; ++i) {

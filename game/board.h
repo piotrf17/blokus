@@ -8,15 +8,6 @@
 
 namespace blokus {
 
-// Move represents how to place a Tile on the board, although it does not
-// include the tile itself.
-struct Move {
-  Coord coord;
-  int rotation;  // 0..3
-  bool flip;
-  std::string DebugString() const;
-};
-
 enum Color {
   BLUE = 0x1,
   YELLOW = 0x2,
@@ -24,8 +15,28 @@ enum Color {
   GREEN = 0x8
 };
 
+Color NextColor(Color c);
 std::string ColorToString(Color c);
+
+// Placement represents how to place a Tile on the board, although it does not
+// include the tile itself.
+struct Placement {
+  Coord coord;
+  int rotation;  // 0..3
+  bool flip;
+  std::string DebugString() const;
+};
+
+// Move fully represents a single move in the game.
+struct Move {
+  static Move EmptyMove(Color color);
+  std::string DebugString() const;
   
+  Color color;            // Who made the move.
+  int tile = -1;          // If -1, a pass. Otherwise the tile that was played.
+  Placement placement;    // How the tile was played.
+};
+
 class Board {
  public:
   static const int kWidth = 20;
@@ -34,9 +45,10 @@ class Board {
   Board();
   ~Board();
 
-  // Returns true if it is possible to place the given tile, of the given color,
-  // in the given move, respecting geometry of the board and rules of the game.
-  bool IsPossible(const Tile& tile, Color color, const Move& move) const;
+  // Returns true if the given move respects the geometry of the board and rules
+  // of the game. Note that Board does not track the current player or the
+  // tiles they have. Use 'Game' for that.
+  bool IsPossible(const Move& move) const;
 
   // Returns a list of all possible moves for the given tile and color.
   // TODO(piotrf): currently, this can list duplicates of essentially the same
@@ -44,8 +56,9 @@ class Board {
   // coordinates and a different rotation.
   std::vector<Move> PossibleMoves(const Tile& tile, Color color) const;
 
-  // Place a tile on the board.
-  bool Place(const Tile& tile, Color color, const Move& move);
+  // Place a tile on the board. Returns true if the move was valid.
+  // An invalid move will not change the state of the board.
+  bool MakeMove(const Move& move);
 
   // Print the board to stdout, with terminal colors.
   // If debug=true, also print out representiations of frontier_ and allowed_.

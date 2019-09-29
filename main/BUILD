@@ -5,7 +5,7 @@ cc_binary(
     srcs = ["blokus_main.cc"],
     deps = [
         "//ai:random",
-        "//game:game",
+        "//game:game_runner",
         "//util:http_server",
         "@com_google_absl//absl/memory",
     ],
@@ -16,11 +16,11 @@ cc_binary(
     name = "train",
     srcs = ["train_main.cc"],
     deps = [
-        "//ai:mcts",
+#        "//ai:mcts",
         "//ai:random",
-        "//game:game",
+        "//game:game_runner",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/time",
     ],
-    linkopts = ["-lglog -lgflags"],
+    linkopts = ["-lglog -lgflags -lprofiler"],
 )

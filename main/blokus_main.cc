@@ -6,12 +6,11 @@
 #include <thread>
 
 #include "absl/memory/memory.h"
-#include <gflags/gflags.h>
 #include <glog/logging.h>
 #include <jsoncpp/json/writer.h>
 
 #include "ai/random.h"
-#include "game/game.h"
+#include "game/game_runner.h"
 #include "util/http_server.h"
 
 namespace blokus {
@@ -27,21 +26,19 @@ class WebPlayer : public Player {
         });
   }
   
-  bool SelectMove(const Board& board __attribute__ ((unused)),
-                  Move* move, int* chosen_tile) {
+  Move SelectMove(const Game& game __attribute__ ((unused))) {
     // Block until we have a move ready.
     LOG(INFO) << ColorToString(color()) << " is waiting for a UI move.";
     while (true) {
-      std::lock_guard<std::mutex> lock(m_);
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      std::lock_guard<std::mutex> lock(m_);
       if (move_ready_) break;
     }
-    *move = move_;
-    *chosen_tile = chosen_tile_;
     // No locking, since the server won't make more requests until after we've
     // played this move.
     move_ready_ = false;
-    return true;
+    // TODO(piotrf): return "pass" from frontend.
+    return move_;
   }
 
   void Handle(blokus::HttpServer::Request* request) {
@@ -53,11 +50,12 @@ class WebPlayer : public Player {
     }
     // Parse the move out of the json.
     const Json::Value& data = request->json();
-    chosen_tile_ = data["tile"].asInt();
-    move_.rotation = data["move"]["rotation"].asInt();
-    move_.flip = data["move"]["flip"].asInt();
-    move_.coord[0] = data["move"]["coord"][0].asInt();
-    move_.coord[1] = data["move"]["coord"][1].asInt();
+    move_.color = color();
+    move_.tile = data["tile"].asInt();
+    move_.placement.rotation = data["move"]["rotation"].asInt();
+    move_.placement.flip = data["move"]["flip"].asInt();
+    move_.placement.coord[0] = data["move"]["coord"][0].asInt();
+    move_.placement.coord[1] = data["move"]["coord"][1].asInt();
     // Indicate that we have a move ready.
     {
       std::unique_lock<std::mutex> lock(m_, std::defer_lock);
@@ -70,7 +68,6 @@ class WebPlayer : public Player {
  private:
   blokus::HttpServer* server_;
   Move move_;
-  int chosen_tile_;
   bool move_ready_ = false;
   std::mutex m_;
 };
@@ -80,8 +77,9 @@ class WebPlayer : public Player {
 class MoveForwarder {
  public:
   void Handle(blokus::HttpServer::Request* request) {
-    std::pair<Move, int> next_move;
+    Move next_move;
     while (true) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
       std::lock_guard<std::mutex> lock(m_);
       if (!moves_.empty()) {
         next_move = moves_.front();
@@ -90,23 +88,23 @@ class MoveForwarder {
       }
     }
     Json::Value data;
-    data["tile"] = next_move.second;
-    data["move"]["rotation"] = Json::Int(next_move.first.rotation);
-    data["move"]["flip"] = next_move.first.flip;
-    data["move"]["coord"][0] = Json::Int(next_move.first.coord[0]);
-    data["move"]["coord"][1] = Json::Int(next_move.first.coord[1]);
+    data["tile"] = next_move.tile;
+    data["move"]["rotation"] = Json::Int(next_move.placement.rotation);
+    data["move"]["flip"] = next_move.placement.flip;
+    data["move"]["coord"][0] = Json::Int(next_move.placement.coord[0]);
+    data["move"]["coord"][1] = Json::Int(next_move.placement.coord[1]);
     Json::FastWriter writer;
     request->set_response(writer.write(data));
     request->set_status(200);
   }
 
-  void NewMove(const Move& move, int tile) {
+  void NewMove(const Move& move) {
     std::lock_guard<std::mutex> lock(m_);
-    moves_.emplace_back(move, tile);
+    moves_.emplace_back(move);
   }
   
  private:
-  std::list<std::pair<Move, int>> moves_;
+  std::list<Move> moves_;
   std::mutex m_;
 };
 
@@ -128,7 +126,7 @@ int main(int argc, char **argv) {
   CHECK(server.Start());
   LOG(INFO) << "Server is running on localhost:7777";
 
-  blokus::Game game;
+  blokus::GameRunner game;
   game.AddPlayer(blokus::BLUE,
                  absl::make_unique<blokus::WebPlayer>(blokus::BLUE, &server));
   game.AddPlayer(blokus::YELLOW,
@@ -140,9 +138,8 @@ int main(int argc, char **argv) {
 
   blokus::MoveForwarder forwarder;
   game.AddObserver([&forwarder](const blokus::Board& board,
-                                const blokus::Move& move,
-                                int tile) {
-      forwarder.NewMove(move, tile);
+                                const blokus::Move& move) {
+      forwarder.NewMove(move);
     });
   game.AddObserver(blokus::BoardPrintingObserver());
   server.RegisterHandler(

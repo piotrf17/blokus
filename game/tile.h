@@ -51,7 +51,7 @@ struct Coord {
 
 class Tile {
  public:
-  explicit Tile(std::vector<std::vector<bool>> blocks);
+  explicit Tile(int index, std::vector<std::vector<bool>> blocks);
 
   // Return the filled in coordinates for this tile, given the specified
   // transformation.
@@ -59,8 +59,11 @@ class Tile {
 
   // How many blocks in the tile?
   int Size() const;
+
+  int index() const { return index_; }
   
  private:
+  int index_;
   std::vector<std::vector<bool>> blocks_;
   std::vector<Coord> transforms_[4][2];
 };
@@ -70,6 +73,8 @@ class Tile {
 // TODO(piotrf): would be useful to have easier indexing into tiles of
 // different sizes.
 extern Tile kTiles[];
+
+inline constexpr int kNumTiles = 21;
   
 }  // namespace blokus
 

@@ -2,18 +2,14 @@
 
 namespace blokus {
 
-bool RandomAI::SelectMove(const Board& board, Move* move, int* chosen_tile) {
-  for (int tile = 20; tile >= 0; tile --) {
-    if (played_tiles_.count(tile) > 0) continue;
-    auto moves = board.PossibleMoves(kTiles[tile], color());
-    if (moves.size() > 0) {
-      *move = moves[rand() % moves.size()];
-      *chosen_tile = tile;
-      played_tiles_.insert(tile);
-      return true;
-    }
+Move RandomAI::SelectMove(const Game& game) {
+  std::vector<Move> moves = game.PossibleMoves();
+  if (moves.size() > 0) {
+    const Move& move = moves[rand() % moves.size()];
+    played_tiles_.insert(move.tile);
+    return move;
   }
-  return false;
+  return Move::EmptyMove(color());
 }
 
 }  // namespace blokus

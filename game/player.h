@@ -2,6 +2,7 @@
 #define BLOKUS_PLAYER_H_
 
 #include "game/board.h"
+#include "game/game.h"
 
 namespace blokus {
   
@@ -11,7 +12,7 @@ class Player {
  public:
   explicit Player(Color color) : color_(color) {}
   
-  virtual bool SelectMove(const Board& board, Move* move, int* chosen_tile) = 0;
+  virtual Move SelectMove(const Game& board) = 0;
 
   Color color() const { return color_; }
   

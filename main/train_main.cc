@@ -4,9 +4,9 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
-#include "ai/mcts.h"
+//#include "ai/mcts.h"
 #include "ai/random.h"
-#include "game/game.h"
+#include "game/game_runner.h"
 
 DEFINE_int32(seed, -1, "Random number seed. If -1, use time.");
 DEFINE_int32(num_games, 10, "Number of games to play.");
@@ -26,9 +26,9 @@ int main(int argc, char **argv) {
 
   absl::Time start = absl::Now();
   for (int i = 0; i < FLAGS_num_games; ++i) {
-    blokus::Game game;
+    blokus::GameRunner game;
     game.AddPlayer(blokus::BLUE,
-                   absl::make_unique<blokus::MctsAI>(blokus::BLUE));
+                   absl::make_unique<blokus::RandomAI>(blokus::BLUE));
     game.AddPlayer(blokus::YELLOW,
                    absl::make_unique<blokus::RandomAI>(blokus::YELLOW));
     game.AddPlayer(blokus::RED,
