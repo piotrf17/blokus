@@ -75,6 +75,19 @@ class Board {
   uint8_t allowed_[kWidth][kHeight];
 };
 
+inline bool operator==(const Placement& lhs, const Placement& rhs) {
+  return lhs.coord == rhs.coord &&
+      lhs.rotation == rhs.rotation &&
+      lhs.flip == rhs.flip;
+}
+
+inline bool operator==(const Move& lhs, const Move& rhs) {
+  if (lhs.color != rhs.color) return false;
+  if (lhs.tile != rhs.tile) return false;
+  if (lhs.tile == -1) return true;
+  return lhs.placement == rhs.placement;
+}
+
 }  // namespace blokus
 
 #endif

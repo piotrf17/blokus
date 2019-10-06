@@ -4,12 +4,13 @@
 #include <gflags/gflags.h>
 #include <glog/logging.h>
 
-//#include "ai/mcts.h"
+#include "ai/mcts.h"
 #include "ai/random.h"
 #include "game/game_runner.h"
 
 DEFINE_int32(seed, -1, "Random number seed. If -1, use time.");
 DEFINE_int32(num_games, 10, "Number of games to play.");
+DEFINE_bool(print_board, false, "Print the board during play.");
 
 int main(int argc, char **argv) {
   // Initialize command line flags and logging.
@@ -28,7 +29,7 @@ int main(int argc, char **argv) {
   for (int i = 0; i < FLAGS_num_games; ++i) {
     blokus::GameRunner game;
     game.AddPlayer(blokus::BLUE,
-                   absl::make_unique<blokus::RandomAI>(blokus::BLUE));
+                   absl::make_unique<blokus::MctsAI>(blokus::BLUE));
     game.AddPlayer(blokus::YELLOW,
                    absl::make_unique<blokus::RandomAI>(blokus::YELLOW));
     game.AddPlayer(blokus::RED,
@@ -36,6 +37,10 @@ int main(int argc, char **argv) {
     game.AddPlayer(blokus::GREEN,
                    absl::make_unique<blokus::RandomAI>(blokus::GREEN));
 
+    if (FLAGS_print_board) {
+      game.AddObserver(blokus::BoardPrintingObserver());
+    }
+    
     auto result = game.Play();
     for (auto iter : result.scores) {
       total_scores[iter.first] += iter.second;

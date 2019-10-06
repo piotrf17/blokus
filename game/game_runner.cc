@@ -19,6 +19,7 @@ GameResult GameRunner::Play() {
   Game game;
   while (!game.Finished()) {
     Move move = players_[game.current_color()]->SelectMove(game);
+    VLOG(1) << move.DebugString();
     CHECK(game.MakeMove(move)) << ColorToString(game.current_color())
                                << " wants to play an invalid move: "
                                << move.DebugString();

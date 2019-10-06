@@ -27,6 +27,9 @@ struct Coord {
   uint8_t c[2];
 };
 
+inline bool operator==(const Coord& lhs, const Coord& rhs) {
+  return lhs.c[0] == rhs.c[0] && lhs.c[1] == rhs.c[1];
+}
 
 // All tiles are placed on a 5x5 block. The top-left corner is (0,0), and it
 // is guaranteed that a piece of the tile exists there. The coordinate system

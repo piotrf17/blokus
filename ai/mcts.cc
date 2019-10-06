@@ -3,6 +3,7 @@
 #include <cmath>
 #include <limits>
 
+#include "absl/strings/str_format.h"
 #include <glog/logging.h>
 
 namespace blokus {
@@ -15,7 +16,7 @@ Node* SelectNode(Node* node, Game* game, double c) {
   // Otherwise pick the best child by UCB1 and recurse.
   std::vector<double> ucb1(
       node->children.size(), std::numeric_limits<double>::infinity());
-  const double logN = std::log(node->parent->visits);
+  const double logN = std::log(node->visits);
   for (size_t i = 0; i < node->children.size(); ++i) {
     const Node& child = node->children[i];
     if (child.visits == 0) continue;
@@ -31,30 +32,17 @@ Node* SelectNode(Node* node, Game* game, double c) {
       max_i = i;
     }
   }
-
-  CHECK(game->Move(node->move));
-  return SelectNode(&node->children[max_i], board, c);
-}
-
-}  // namespace
-
-Color MctsAI::Rollout(const Board& initial_board) {
-  Game game(initial_board);
-  while (!game.Finished()) {
-    std::vector<Move> possible_moves = game.board().PossibleMoves();
-    int move_idx = rand() % possible_moves.size();
-    CHECK(game.Move(possible_moves[move_idx]));
-  }
-  return game.Winner();
-}
-
-void MctsAI::Iteration(const Game& initial_game) {
-  Game game = initial_game;
   
-  // Select a node to expand to.
-  Node* node = SelectNode(&tree_, &game, c_);
+  CHECK(game->MakeMove(node->children[max_i].move))
+      << "SelectNode tried " << node->move.DebugString();
+  
+  return SelectNode(&node->children[max_i], game, c);
+}
 
-  // Create all children for this node.
+void ExpandNode(const Game& game, Node* node) {
+  if (!node->children.empty()) return;
+
+  // Look for possible moves, and if found, create a child for each move.
   std::vector<Move> possible_moves = game.PossibleMoves();
   node->children.reserve(possible_moves.size());
   for (const Move& move : possible_moves) {
@@ -64,34 +52,109 @@ void MctsAI::Iteration(const Game& initial_game) {
     node->children.push_back(std::move(child_node));
   }
 
-  // Run rollouts starting from this node.
+  // If there are no possible moves, create an empty move for this node.
+  if (node->children.empty()) {
+    Node child_node;
+    child_node.move = Move::EmptyMove(game.current_color());
+    child_node.parent = node;
+    node->children.push_back(std::move(child_node));
+  }
+}
+
+}  // namespace
+
+std::string Node::DebugString() const {
+  return absl::StrFormat("(%d/%d), %d children, %s", wins, visits,
+                         children.size(), move.DebugString());
+}
+
+Color MctsAI::Rollout(Game game) {
+  while (!game.Finished()) {
+    std::vector<Move> possible_moves = game.PossibleMoves();
+    Move move = Move::EmptyMove(game.current_color());
+    if (!possible_moves.empty()) {
+      move = possible_moves[rand() % possible_moves.size()];
+    }
+    CHECK(game.MakeMove(move));
+  }
+  // TODO(piotrf): use score margin as well?
+  return game.Result().winner;
+}
+
+void MctsAI::Iteration(Game game) {  
+  // Select and expand a node.
+  Node* node = SelectNode(&tree_, &game, c_);
+  ExpandNode(game, node);
+
+  // Arbitrarily pick the first child to rollout on.
+  node = &node->children[0];
   constexpr int kNumRollouts = 1;
   for (int i = 0; i < kNumRollouts; ++i) {
-    Color winner = Rollout(board);
-    // xxx bookkeeping on the winner
+    VLOG(1) << "  MCTS running rollout " << i;
+    Color winner = Rollout(game);
+    VLOG(1) << "    rollout winner is " << ColorToString(winner);
+
+    // Bookkeeping on the winner.
+    Node* update_node = node;
+    while (update_node != nullptr) {
+      update_node->visits++;
+      if (update_node->move.color == winner) {
+        update_node->wins++;
+      }
+      update_node = update_node->parent;
+    }
   }
 }
 
 Move MctsAI::SelectMove(const Game& game) {
   // Unless this is our first move, update tree based on last moves.
   for (size_t i = game.moves().size() - 3; i < game.moves().size(); ++i) {
-    if (tree_.visits == 0) break;
+    VLOG(1) << "MCTS updating tree for move " << game.moves()[i].DebugString();
+    VLOG(1) << " current tree_: " << tree_.DebugString();
+    if (tree_.children.empty()) {
+      VLOG(1) << "MCTS tree ran out while updating nodes";
+      tree_ = Node();
+      break;
+    }
+    bool found_match = false;
     for (Node& child : tree_.children) {
+      VLOG(2) << "  child: " << child.DebugString();
       if (child.move == game.moves()[i]) {
+        found_match = true;
         tree_ = std::move(child);
         break;
       }
     }
+    CHECK(found_match);
   }
 
-  constexpr int kNumIterations = 1;
+  // Expand out the root, in case we didn't find it above.
+  ExpandNode(game, &tree_);
+
+  constexpr int kNumIterations = 1000;
   for (int i = 0; i < kNumIterations; ++i) {
+    VLOG(1) << "MCTS running iteration " << i;
     Iteration(game);
   }
 
+  if (tree_.children.empty()) {
+    return Move::EmptyMove(color());
+  }
+
   // Pick the best move.
-  // xxx
-  return {};
+  VLOG(1) << "MCTS picking from " << tree_.children.size() << " moves.";
+  int max_visits = 0;
+  const Node* best_child = nullptr;
+  for (const Node& child : tree_.children) {
+    VLOG(2) << child.DebugString();
+    if (child.visits > max_visits) {
+      max_visits = child.visits;
+      best_child = &child;
+    }
+  }
+  CHECK(best_child != nullptr);
+  tree_ = std::move(*best_child);
+  return tree_.move;
 }
 
 }  // namespace blokus

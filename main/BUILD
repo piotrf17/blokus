@@ -16,7 +16,7 @@ cc_binary(
     name = "train",
     srcs = ["train_main.cc"],
     deps = [
-#        "//ai:mcts",
+        "//ai:mcts",
         "//ai:random",
         "//game:game_runner",
         "@com_google_absl//absl/memory",

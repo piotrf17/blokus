@@ -8,6 +8,7 @@ cc_library(
     hdrs = ["mcts.h"],
     deps = [
         "//game:player",
+	"@com_google_absl//absl/strings:str_format",
     ],
 )
 
