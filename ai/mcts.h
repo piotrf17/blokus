@@ -26,6 +26,10 @@ struct Node {
   std::vector<Node> children;
 };
 
+// Computes a rollout of the given game, using random actions for all players
+// moves. Returns the winner of the game.
+Color Rollout(Game game);
+
 class MctsAI : public Player {
  public:
   explicit MctsAI(Color color) : Player(color) {}
@@ -34,7 +38,6 @@ class MctsAI : public Player {
 
  private:
   void Iteration(Game game);
-  Color Rollout(Game game);
 
   double c_ = 1.4;
 

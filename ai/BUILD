@@ -12,6 +12,16 @@ cc_library(
     ],
 )
 
+cc_binary(
+   name = "mcts_benchmark",
+   srcs = ["mcts_benchmark.cc"],
+   deps = [
+       ":mcts",
+	"@com_google_benchmark//:benchmark",
+   ],
+   linkopts = ["-lglog -lgflags"],
+)
+
 cc_library(
     name = "random",
     srcs = ["random.cc"],

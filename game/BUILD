@@ -13,6 +13,16 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "board_test",
+    srcs = ["board_test.cc"],
+    deps = [
+     	 ":board",
+	 "@com_google_googletest//:gtest_main",
+    ],
+    linkopts = ["-lglog -lgflags"],
+)
+
 cc_library(
     name = "game",
     srcs = ["game.cc"],

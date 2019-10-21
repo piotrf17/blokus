@@ -68,7 +68,7 @@ std::string Node::DebugString() const {
                          children.size(), move.DebugString());
 }
 
-Color MctsAI::Rollout(Game game) {
+Color Rollout(Game game) {
   while (!game.Finished()) {
     std::vector<Move> possible_moves = game.PossibleMoves();
     Move move = Move::EmptyMove(game.current_color());
