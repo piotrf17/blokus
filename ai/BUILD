@@ -19,7 +19,7 @@ cc_binary(
        ":mcts",
 	"@com_google_benchmark//:benchmark",
    ],
-   linkopts = ["-lglog -lgflags"],
+   linkopts = ["-lglog -lgflags -lprofiler"],
 )
 
 cc_library(
