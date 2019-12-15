@@ -8,8 +8,10 @@ cc_binary(
         "//game:game_runner",
         "//util:http_server",
         "@com_google_absl//absl/memory",
+	"@com_github_gflags_gflags//:gflags",
+	"@com_google_glog//:glog",
     ],
-    linkopts = ["-lglog -lgflags -lmicrohttpd -ljsoncpp"],
+    linkopts = ["-lmicrohttpd -ljsoncpp"],
 )
 
 cc_binary(
@@ -21,6 +23,8 @@ cc_binary(
         "//game:game_runner",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/time",
+        "@com_github_gflags_gflags//:gflags",
+	"@com_google_glog//:glog",
     ],
-    linkopts = ["-lglog -lgflags -lprofiler"],
+    linkopts = ["-lprofiler"],
 )

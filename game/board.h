@@ -1,6 +1,7 @@
 #ifndef BLOKUS_GAME_BOARD_H_
 #define BLOKUS_GAME_BOARD_H_
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -67,12 +68,18 @@ class Board {
   
  private:
   void PrintAllowable(const uint8_t board[kWidth][kHeight]) const;
+
+  bool IsPossible(const Slot& slot,
+                  const TileOrientation& orientation,
+                  const Corner& corner, Color color) const;
   
   uint8_t pieces_[kWidth][kHeight];
   // Frontier is the outer border of our movements. Every move must contain
   // a bit of frontier.
   uint8_t frontier_[kWidth][kHeight];
   uint8_t allowed_[kWidth][kHeight];
+
+  std::map<Color, std::vector<Slot>> slots_;
 };
 
 inline bool operator==(const Placement& lhs, const Placement& rhs) {

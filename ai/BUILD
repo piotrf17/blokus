@@ -18,8 +18,10 @@ cc_binary(
    deps = [
        ":mcts",
 	"@com_google_benchmark//:benchmark",
+	"@com_google_glog//:glog",
+        "@com_github_gflags_gflags//:gflags",
    ],
-   linkopts = ["-lglog -lgflags -lprofiler"],
+   linkopts = ["-lprofiler"],
 )
 
 cc_library(

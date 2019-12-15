@@ -18,9 +18,9 @@ cc_test(
     srcs = ["board_test.cc"],
     deps = [
      	 ":board",
+   	 "@com_google_glog//:glog",
 	 "@com_google_googletest//:gtest_main",
     ],
-    linkopts = ["-lglog -lgflags"],
 )
 
 cc_library(
@@ -46,6 +46,16 @@ cc_library(
     name = "tile",
     srcs = ["tile.cc"],
     hdrs = ["tile.h"],
+)
+
+cc_test(
+    name = "tile_test",
+    srcs = ["tile_test.cc"],
+    deps = [
+        ":tile",
+	"@com_google_glog//:glog",
+	"@com_google_googletest//:gtest_main",
+    ],
 )
 
 cc_library(

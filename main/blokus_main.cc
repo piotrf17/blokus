@@ -6,7 +6,8 @@
 #include <thread>
 
 #include "absl/memory/memory.h"
-#include <glog/logging.h>
+#include "gflags/gflags.h"
+#include "glog/logging.h"
 #include <jsoncpp/json/writer.h>
 
 #include "ai/random.h"
