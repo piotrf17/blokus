@@ -8,6 +8,7 @@ cc_library(
     hdrs = ["board.h"],
     deps = [
         ":tile",
+	"@com_google_glog//:glog",
   	"@com_google_absl//absl/strings",
 	"@com_google_absl//absl/strings:str_format",
     ],
@@ -46,6 +47,9 @@ cc_library(
     name = "tile",
     srcs = ["tile.cc"],
     hdrs = ["tile.h"],
+    deps = [
+    	"@com_google_glog//:glog",
+    ]
 )
 
 cc_test(

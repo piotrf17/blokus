@@ -1,13 +1,10 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-# TODO(piotrf): use an http_archive
-local_repository(
-  # Name of the Abseil repository. This name is defined within Abseil's
-  # WORKSPACE file, in its `workspace()` metadata
+http_archive(
   name = "com_google_absl",
-
-  # NOTE: Bazel paths must be absolute paths. E.g., you can't use ~/Source
-  path = "/home/piotrf/source/abseil-cpp",
+  url = "https://github.com/abseil/abseil-cpp/archive/20200225.1.tar.gz",
+  sha256 = "0db0d26f43ba6806a8a3338da3e646bb581f0ca5359b3a201d8fb8e4752fd5f8",
+  strip_prefix = "abseil-cpp-20200225.1",
 )
 
 http_archive(
