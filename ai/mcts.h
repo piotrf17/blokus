@@ -1,6 +1,7 @@
 #ifndef BLOKUS_AI_MCTS_H
 #define BLOKUS_AI_MCTS_H
 
+#include <memory>
 #include <set>
 #include <string>
 
@@ -23,7 +24,7 @@ struct Node {
   int visits = 0;
 
   Node* parent = nullptr;
-  std::vector<Node> children;
+  std::vector<std::unique_ptr<Node>> children;
 };
 
 // Computes a rollout of the given game, using random actions for all players
@@ -32,7 +33,8 @@ Color Rollout(Game game);
 
 class MctsAI : public Player {
  public:
-  explicit MctsAI(Color color) : Player(color) {}
+  explicit MctsAI(Color color) :
+      Player(color), tree_(std::make_unique<Node>()) {}
 
   Move SelectMove(const Game& board) override;
 
@@ -43,7 +45,7 @@ class MctsAI : public Player {
 
   std::set<int> played_tiles_;
 
-  Node tree_;
+  std::unique_ptr<Node> tree_;
 };
   
 }  // namespace blokus

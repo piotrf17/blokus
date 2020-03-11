@@ -10,6 +10,7 @@
 namespace blokus {
 
 enum Color {
+  INVALID = 0x0,
   BLUE = 0x1,
   YELLOW = 0x2,
   RED = 0x4,
@@ -23,8 +24,8 @@ std::string ColorToString(Color c);
 // include the tile itself.
 struct Placement {
   Coord coord;
-  int rotation;  // 0..3
-  bool flip;
+  int rotation = 0;  // 0..3
+  bool flip = false;
   std::string DebugString() const;
 };
 
@@ -33,7 +34,7 @@ struct Move {
   static Move EmptyMove(Color color);
   std::string DebugString() const;
   
-  Color color;            // Who made the move.
+  Color color = INVALID;  // Who made the move.
   int tile = -1;          // If -1, a pass. Otherwise the tile that was played.
   Placement placement;    // How the tile was played.
 };
