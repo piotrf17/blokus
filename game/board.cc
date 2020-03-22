@@ -3,6 +3,7 @@
 #include <cstring>
 #include <glog/logging.h>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 
@@ -22,6 +23,21 @@ std::vector<Coord> PlacedTile(const Tile& tile, const Placement& placement) {
     coor[1] += placement.coord[1];
   }
   return coors;
+}
+
+const TileOrientation& OrientationForMove(const Move& move) {
+  for (const TileOrientation& o : kTiles[move.tile].orientations()) {
+    if (o.rotation() == move.placement.rotation &&
+        o.flip() == move.placement.flip) {
+      return o;
+    }
+  }
+  LOG(FATAL) << "No orientation found for move: " << move.DebugString();
+}
+
+int PlacementHash(const Placement& p) {
+  int rc = p.coord.row() * Board::kNumCols + p.coord.col();
+  return rc * 8 + p.rotation * 2 + p.flip;
 }
 
 }  // namespace
@@ -81,48 +97,44 @@ std::string Move::DebugString() const {
 
 Board::Board() {
   // Initially, there are no pieces on the board.
-  memset(pieces_, 0, kWidth * kHeight * sizeof(uint8_t));
+  memset(pieces_, 0, kNumRows * kNumCols * sizeof(uint8_t));
 
   // Initially, you can only move in a corner. Place in turn order,
   // going clockwise from top-left (0,0).
-  memset(frontier_, 0, kWidth * kHeight * sizeof(uint8_t));
-  frontier_[0][0] = BLUE;
-  frontier_[0][kWidth - 1] = YELLOW;
-  frontier_[kHeight - 1][kWidth - 1] = RED;
-  frontier_[kHeight - 1][0] = GREEN;
   slots_[BLUE].push_back(Slot{Coord(0, 0), Slot::SE});
-  slots_[YELLOW].push_back(Slot{Coord(0, kWidth - 1), Slot::SW});
-  slots_[RED].push_back(Slot{Coord(kHeight - 1, kWidth - 1), Slot::NW});
-  slots_[GREEN].push_back(Slot{Coord(kHeight - 1, 0), Slot::NE});
+  slots_[YELLOW].push_back(Slot{Coord(0, kNumCols - 1), Slot::SW});
+  slots_[RED].push_back(Slot{Coord(kNumRows - 1, kNumCols - 1), Slot::NW});
+  slots_[GREEN].push_back(Slot{Coord(kNumRows - 1, 0), Slot::NE});
 
   // Initially, everyone is allowed to move everywhere.
-  memset(allowed_, BLUE | YELLOW | RED | GREEN,
-         kWidth * kHeight * sizeof(uint8_t));
+  for (auto color : {BLUE, YELLOW, RED, GREEN}) {
+    for (int row = 0; row < kNumRows; ++row) {
+      available_[color].push_back(0xFFFFFFFF);
+    }
+  }
 }
 
 Board::~Board() {
 }
 
 bool Board::IsPossible(const Move& move) const {
-  // TODO(piotrf): fix to use slots approach
-  bool contains_frontier = false;
-  for (const Coord& coord : PlacedTile(kTiles[move.tile], move.placement)) {
-    int x = coord[0];
-    int y = coord[1];
+  const TileOrientation& orientation = OrientationForMove(move);
 
-    // Verify that the piece is on the board.
-    if (x < 0 || x > kWidth - 1) return false;
-    if (y < 0 || y > kHeight - 1) return false;
-
-    // Verify that we are allowed to move here.
-    if ((allowed_[x][y] & move.color) == 0) return false;
-
-    // Keep track of whether or not we touch the frontier. We must touch in at
-    // least on place.
-    contains_frontier |= frontier_[coord[0]][coord[1]] & move.color;
+  // Find a slot that matches one of the corners in the piece.
+  // TODO(piotrf): use a map of slots to speed this up. That also solves the
+  // slot duplication issue.
+  for (const Corner& corner : orientation.corners()) {
+    const int r = move.placement.coord.row() + corner.c.row()
+        - orientation.offset().row();
+    const int c = move.placement.coord.col() + corner.c.col()
+        - orientation.offset().col();
+    for (const Slot& slot : slots_.at(move.color)) {
+      if (slot.c.row() != r || slot.c.col() != c) continue;
+      return IsPossible(slot, orientation, corner, move.color);
+    }
   }
-  
-  return contains_frontier;
+
+  return false;
 }
 
 bool Board::IsPossible(const Slot& slot,
@@ -130,16 +142,24 @@ bool Board::IsPossible(const Slot& slot,
                        const Corner& corner, Color color) const {
   if (!corner.Fits(slot)) return false;
 
-  for (const Coord& coord : orientation.coords()) {
-    const int x = coord[0] + slot.c[0] - corner.c[0];
-    const int y = coord[1] + slot.c[1] - corner.c[1];
+  // Compute the coordinates of the upper-left corner.
+  const int start_row = slot.c.row() - corner.c.row();
+  const int start_col = slot.c.col() - corner.c.col();
 
-    // Verify that the piece is on the board.
-    if (x < 0 || x > kWidth - 1) return false;
-    if (y < 0 || y > kHeight - 1) return false;
-    
-    // Verify that we are allowed to move here.
-    if ((allowed_[x][y] & color) == 0) return false;
+  // See if the whole block fits, based on the width and height.
+  if (start_row < 0 || start_row + orientation.num_rows() > kNumRows)
+    return false;
+  if (start_col < 0 || start_col + orientation.num_cols() > kNumCols)
+    return false;
+
+  // Now test the block against available free space on the board.
+  for (int block_row = 0; block_row < orientation.num_rows(); ++block_row) {
+    const int board_row = block_row + start_row;
+    const uint32_t slice = (orientation.rows()[block_row]) << start_col;
+    const uint32_t board_slice = available_.at(color)[board_row];
+    if ((slice | board_slice) != board_slice) {
+      return false;
+    }
   }
 
   return true;
@@ -149,21 +169,34 @@ bool Board::IsPossible(const Slot& slot,
 std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
   std::vector<Move> moves;
 
+  // Prevent duplicate moves that can occur when different corner/slot combos
+  // result in the same exact placement.
+  absl::flat_hash_set<int> placement_hashes(10);
+
   Move move_template;
   move_template.tile = tile.index();
   move_template.color = color;
 
   for (const Slot& slot : slots_.at(color)) {
+    VLOG(2) << "Looking at slot at " << slot.c;
     for (const TileOrientation& orientation : tile.orientations()) {
+      VLOG(2) << "  Looking at orientation r=" << orientation.rotation()
+                << " f=" << orientation.flip()
+                << " offset=" << orientation.offset();
       for (const Corner& corner : orientation.corners()) {
+        VLOG(2) << "    Looking at corner at " << corner.c;
         if (IsPossible(slot, orientation, corner, color)) {
+          VLOG(2) << "      Possible!";
           Move move = move_template;
           move.placement.coord =
               Coord(slot.c[0] + orientation.offset()[0] - corner.c[0],
                     slot.c[1] + orientation.offset()[1] - corner.c[1]);
           move.placement.rotation = orientation.rotation();
           move.placement.flip = orientation.flip();
-          moves.push_back(std::move(move));
+
+          if (placement_hashes.insert(PlacementHash(move.placement)).second) {
+            moves.push_back(std::move(move));
+          }
         }
       }
     }
@@ -178,117 +211,74 @@ bool Board::MakeMove(const Move& move) {
   }
   std::vector<Coord> coords = PlacedTile(kTiles[move.tile], move.placement);
   for (const Coord& coord : coords) {
-    pieces_[coord[0]][coord[1]] = move.color;
+    pieces_[coord.row()][coord.col()] = move.color;
   }
-  // TODO(piotrf): fix for slots approach
-  // Update frontier and allowed based on current state of pieces_.
-  for (int i = 0; i < kHeight; ++i) {
-    for (int j = 0; j < kWidth; ++j) {
-      // If there is a piece here, it's not on the frontier or allowed.
-      if (pieces_[i][j]) {
-        frontier_[i][j] = 0;
-        allowed_[i][j] = 0;
-        continue;
-      }
-      // If there is a piece horizontally or vertically separated, then
-      // that color can't move here.
-      uint8_t allowed = BLUE | YELLOW | RED | GREEN;
-      if (i > 0 && pieces_[i - 1][j]) allowed &= ~pieces_[i - 1][j];
-      if (i < kHeight - 1 && pieces_[i + 1][j]) allowed &= ~pieces_[i + 1][j];
-      if (j > 0 && pieces_[i][j - 1]) allowed &= ~pieces_[i][j - 1];
-      if (j < kWidth - 1 && pieces_[i][j + 1]) allowed &= ~pieces_[i][j + 1];
-      allowed_[i][j] = allowed;
-      // If there is a piece corner separated from us, and this is an allowed
-      // spot, then this is on our frontier.
-      uint8_t frontier = 0;
-      if (i > 0 && j > 0 && pieces_[i - 1][j - 1])
-        frontier |= pieces_[i - 1][j - 1];
-      if (i > 0 && j < kWidth - 1 && pieces_[i - 1][j + 1])
-        frontier |= pieces_[i - 1][j + 1];
-      if (i < kHeight - 1 && j > 0 && pieces_[i + 1][j - 1])
-        frontier |= pieces_[i + 1][j - 1];
-      if (i < kHeight - 1 && j < kWidth - 1 && pieces_[i + 1][j + 1])
-        frontier |= pieces_[i + 1][j + 1];
-      frontier_[i][j] = frontier & allowed;
-    }
-  }
-  // Always enforce initial frontier.
-  // TODO(piotrf): clean up code duplication.
-  frontier_[0][0] = BLUE;
-  frontier_[0][kWidth - 1] = YELLOW;
-  frontier_[kHeight - 1][kWidth - 1] = RED;
-  frontier_[kHeight - 1][0] = GREEN;
 
   // Update slots based on the move.
-  // TODO(piotrf): finding the matching orientation here is hacky.
-  const TileOrientation* orientation = nullptr;
-  for (const TileOrientation& o : kTiles[move.tile].orientations()) {
-    if (o.rotation() == move.placement.rotation &&
-        o.flip() == move.placement.flip) {
-      orientation = &o;
-      break;
+  const TileOrientation& orientation = OrientationForMove(move);
+  for (Slot slot : orientation.slots()) {
+    slot.c[0] += move.placement.coord[0] - orientation.offset()[0];
+    slot.c[1] += move.placement.coord[1] - orientation.offset()[1];
+    if (slot.c.row() < 0 || slot.c.row() >= kNumRows ||
+        slot.c.col() < 0 || slot.c.col() >= kNumCols) {
+      continue;
     }
-  }
-  CHECK(orientation != nullptr);
-
-  for (Slot slot : orientation->slots()) {
-    slot.c[0] += move.placement.coord[0] - orientation->offset()[0];
-    slot.c[1] += move.placement.coord[1] - orientation->offset()[1];
     // TODO(piotrf): dedup slots.
     slots_[move.color].push_back(slot);
+  }
+
+  // Update available bitmap based on the move.
+  // First, update the non-move colors. Only the blocks in the tile
+  // are marked unavailable.
+  const int start_row =
+      move.placement.coord.row() - orientation.offset().row();
+  const int start_col =
+      move.placement.coord.col() - orientation.offset().col();
+  for (auto color : {BLUE, YELLOW, RED, GREEN}) {
+    if (color == move.color) continue;
+    for (int block_row = 0; block_row < orientation.num_rows(); ++block_row) {
+      const int board_row = start_row + block_row;
+      const uint32_t slice = (orientation.rows()[block_row]) << start_col;
+      available_[color][board_row] &= ~slice;
+    }
+  }
+  // Next, update the move color. The blocks in the tile and all surrounding
+  // blocks are marked unavailable.
+  for (int block_row = 0; block_row < orientation.num_rows() + 2;
+       ++block_row) {
+    const int board_row = start_row + block_row - 1;
+    if (board_row < 0 || board_row >= kNumRows) continue;
+    uint32_t slice;
+    if (start_col == 0) {
+      slice = (orientation.expanded_rows()[block_row]) >> 1;
+    } else {
+      slice = (orientation.expanded_rows()[block_row]) << (start_col - 1);
+    }
+    available_[move.color][board_row] &= ~slice;
   }
 
   return true;
 }
 
-void Board::PrintAllowable(const uint8_t board[kWidth][kHeight]) const {
-  printf("  ");
-  for (int i = 0; i < kWidth; ++i) {
-    printf("  %2d ", i);
-  }
-  printf("\n");
-  for (int j = 0; j < kHeight; ++j) {
-    printf("%2d ", j);
-    for (int i = 0; i < kWidth; ++i) {
-      std::string out;
-      for (Color color : {BLUE, YELLOW, RED, GREEN}) {
-        if (board[i][j] & color)
-          out += AnsiColor(color) + "\u25a3";
-        else
-          out +=  " ";
-      }
-      out += ANSI_COLOR_RESET " ";
-      printf("%s", out.c_str());
-    }
-    printf("\n");
-  }
-}
-
 void Board::Print(bool debug) const {
   // Print out the pieces on the board.
   printf("  ");
-  for (int i = 0; i < kWidth; ++i) {
-    printf(" %2d", i);
+  for (int c = 0; c < kNumCols; ++c) {
+    printf(" %2d", c);
   }
   printf("\n");
-  for (int j = 0; j < kHeight; ++j) {
-    printf("%2d ", j);
-    for (int i = 0; i < kWidth; ++i) {
-      if (pieces_[j][i]) {
+  for (int r = 0; r < kNumRows; ++r) {
+    printf("%2d ", r);
+    for (int c = 0; c < kNumCols; ++c) {
+      if (pieces_[r][c]) {
         std::string out =
-            AnsiColor(static_cast<Color>(pieces_[j][i])) + "\u25a3";
+            AnsiColor(static_cast<Color>(pieces_[r][c])) + "\u25a3";
         printf(" %s" ANSI_COLOR_RESET " ", out.c_str());
       } else {
         printf(" _ ");
       }
     }
     printf("\n");
-  }
-  if (debug) {
-    printf("========== FRONTIER ==========\n");
-    PrintAllowable(frontier_);
-    printf("========== ALLOWED ==========\n");
-    PrintAllowable(allowed_);
   }
 }
 

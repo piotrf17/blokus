@@ -92,7 +92,7 @@ void MctsAI::Iteration(Game game) {
   for (int i = 0; i < kNumRollouts; ++i) {
     VLOG(3) << "  MCTS running rollout " << i;
     Color winner = Rollout(game);
-    VLOG(3) << "    rollout winner is " << ColorToString(winner);
+    VLOG(3) << "   rollout winner is " << ColorToString(winner);
 
     // Bookkeeping on the winner.
     Node* update_node = node;
@@ -136,7 +136,9 @@ Move MctsAI::SelectMove(const Game& game) {
 
   constexpr int kNumIterations = 10000;
   for (int i = 0; i < kNumIterations; ++i) {
-    VLOG(3) << "MCTS running iteration " << i;
+    if (i % 100 == 0) {
+      VLOG(2) << "MCTS running iteration " << i;
+    }
     Iteration(game);
   }
 

@@ -19,6 +19,7 @@ enum Color {
 
 Color NextColor(Color c);
 std::string ColorToString(Color c);
+std::string AnsiColor(Color c);
 
 // Placement represents how to place a Tile on the board, although it does not
 // include the tile itself.
@@ -41,8 +42,8 @@ struct Move {
 
 class Board {
  public:
-  static const int kWidth = 20;
-  static const int kHeight = 20;
+  static const int kNumRows = 20;
+  static const int kNumCols = 20;
   
   Board();
   ~Board();
@@ -50,6 +51,7 @@ class Board {
   // Returns true if the given move respects the geometry of the board and rules
   // of the game. Note that Board does not track the current player or the
   // tiles they have. Use 'Game' for that.
+  // TODO(piotrf): change this API to take a TileOrientation instead.
   bool IsPossible(const Move& move) const;
 
   // Returns a list of all possible moves for the given tile and color.
@@ -63,22 +65,21 @@ class Board {
   bool MakeMove(const Move& move);
 
   // Print the board to stdout, with terminal colors.
-  // If debug=true, also print out representiations of frontier_ and allowed_.
   // TODO(piotrf): return a string instead.
   void Print(bool debug = false) const;
   
  private:
-  void PrintAllowable(const uint8_t board[kWidth][kHeight]) const;
-
   bool IsPossible(const Slot& slot,
                   const TileOrientation& orientation,
                   const Corner& corner, Color color) const;
   
-  uint8_t pieces_[kWidth][kHeight];
-  // Frontier is the outer border of our movements. Every move must contain
-  // a bit of frontier.
-  uint8_t frontier_[kWidth][kHeight];
-  uint8_t allowed_[kWidth][kHeight];
+  uint8_t pieces_[kNumRows][kNumCols];
+
+  // Bitwise representation of the rows in the board.
+  // Column 0 corresponds to the least significant bit in each uint32_t.
+  // A "1" means that the (row, col) is available for a piece, while a "0" means
+  // that it is occupied.
+  std::map<Color, std::vector<uint32_t>> available_;
 
   std::map<Color, std::vector<Slot>> slots_;
 };

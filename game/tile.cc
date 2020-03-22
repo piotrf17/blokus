@@ -225,6 +225,7 @@ TileOrientation::TileOrientation(int rotation, bool flip,
     : rotation_(rotation), flip_(flip), coords_(std::move(coords)),
       offset_(std::move(offset)) {
   ComputeSlotsAndCorners();
+  ComputeSlices();
 }
 
 void TileOrientation::ComputeSlotsAndCorners() {
@@ -300,6 +301,31 @@ void TileOrientation::ComputeSlotsAndCorners() {
         }
       }
     }
+  }
+}
+
+void TileOrientation::ComputeSlices() {
+  rows_.resize(5, 0x0);
+  for (const Coord& coord : coords_) {
+    CHECK_GE(coord.row(), 0);
+    CHECK_LT(coord.row(), 5);
+    CHECK_GE(coord.col(), 0);
+    CHECK_LT(coord.col(), 5);
+
+    rows_[coord.row()] |= 1 << coord.col();
+
+    num_rows_ = std::max(num_rows_, int(coord.row()) + 1);
+    num_cols_ = std::max(num_cols_, int(coord.col()) + 1);
+  }
+  rows_.resize(num_rows_);
+
+  expanded_rows_.resize(num_rows_ + 2, 0x0);
+  for (const Coord& coord : coords_) {
+    expanded_rows_[coord.row()] |= 1 << (coord.col() + 1);
+    expanded_rows_[coord.row() + 1] |= 1 << (coord.col() + 0);
+    expanded_rows_[coord.row() + 1] |= 1 << (coord.col() + 1);
+    expanded_rows_[coord.row() + 1] |= 1 << (coord.col() + 2);
+    expanded_rows_[coord.row() + 2] |= 1 << (coord.col() + 1);
   }
 }
 

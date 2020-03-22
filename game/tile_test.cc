@@ -26,6 +26,14 @@ TEST(TileTest, 1x1) {
   EXPECT_THAT(o.slots()[2].c, Eq(Coord(1, -1)));
   EXPECT_THAT(o.slots()[3].type, Eq(Corner::SE));
   EXPECT_THAT(o.slots()[3].c, Eq(Coord(1, 1)));
+
+  EXPECT_THAT(o.num_cols(), Eq(1));
+  ASSERT_THAT(o.num_rows(), Eq(1));
+  EXPECT_THAT(o.rows()[0], Eq(0b1));
+  ASSERT_THAT(o.expanded_rows(), SizeIs(3));
+  EXPECT_THAT(o.expanded_rows()[0], Eq(0b010));
+  EXPECT_THAT(o.expanded_rows()[1], Eq(0b111));
+  EXPECT_THAT(o.expanded_rows()[2], Eq(0b010));
 }
 
 TEST(TileTest, 2x1) {
@@ -48,6 +56,14 @@ TEST(TileTest, 2x1) {
   EXPECT_THAT(o1.slots()[3].type, Eq(Corner::SE));
   EXPECT_THAT(o1.slots()[3].c, Eq(Coord(1, 2)));
 
+  EXPECT_THAT(o1.num_cols(), Eq(2));
+  ASSERT_THAT(o1.num_rows(), Eq(1));
+  EXPECT_THAT(o1.rows()[0], Eq(0b11));
+  ASSERT_THAT(o1.expanded_rows(), SizeIs(3));
+  EXPECT_THAT(o1.expanded_rows()[0], Eq(0b0110));
+  EXPECT_THAT(o1.expanded_rows()[1], Eq(0b1111));
+  EXPECT_THAT(o1.expanded_rows()[2], Eq(0b0110));
+
   const TileOrientation& o2 = tile.orientations()[1];
   ASSERT_THAT(o2.corners(), SizeIs(2));
   EXPECT_THAT(o2.corners()[0].type, Eq(Corner::NORTH));
@@ -63,6 +79,16 @@ TEST(TileTest, 2x1) {
   EXPECT_THAT(o2.slots()[2].c, Eq(Coord(2, -1)));
   EXPECT_THAT(o2.slots()[3].type, Eq(Corner::SE));
   EXPECT_THAT(o2.slots()[3].c, Eq(Coord(2, 1)));
+
+  EXPECT_THAT(o2.num_cols(), Eq(1));
+  ASSERT_THAT(o2.num_rows(), Eq(2));
+  EXPECT_THAT(o2.rows()[0], Eq(0b1));
+  EXPECT_THAT(o2.rows()[1], Eq(0b1));
+  ASSERT_THAT(o2.expanded_rows(), SizeIs(4));
+  EXPECT_THAT(o2.expanded_rows()[0], Eq(0b010));
+  EXPECT_THAT(o2.expanded_rows()[1], Eq(0b111));
+  EXPECT_THAT(o2.expanded_rows()[2], Eq(0b111));
+  EXPECT_THAT(o2.expanded_rows()[3], Eq(0b010));
 }
 
 TEST(TileTest, C) {
@@ -90,6 +116,18 @@ TEST(TileTest, C) {
   EXPECT_THAT(o1.slots()[3].c, Eq(Coord(3, -1)));
   EXPECT_THAT(o1.slots()[4].type, Eq(Corner::SE));
   EXPECT_THAT(o1.slots()[4].c, Eq(Coord(3, 2)));
+
+  EXPECT_THAT(o1.num_cols(), Eq(2));
+  ASSERT_THAT(o1.num_rows(), Eq(3));
+  EXPECT_THAT(o1.rows()[0], Eq(0b11));
+  EXPECT_THAT(o1.rows()[1], Eq(0b01));
+  EXPECT_THAT(o1.rows()[2], Eq(0b11));
+  ASSERT_THAT(o1.expanded_rows(), SizeIs(5));
+  EXPECT_THAT(o1.expanded_rows()[0], Eq(0b0110));
+  EXPECT_THAT(o1.expanded_rows()[1], Eq(0b1111));
+  EXPECT_THAT(o1.expanded_rows()[2], Eq(0b0111));
+  EXPECT_THAT(o1.expanded_rows()[3], Eq(0b1111));
+  EXPECT_THAT(o1.expanded_rows()[4], Eq(0b0110));
 }
 
 TEST(TileTest, Cross) {
@@ -123,6 +161,12 @@ TEST(TileTest, Cross) {
   EXPECT_THAT(o.slots()[6].c, Eq(Coord(3, 0)));
   EXPECT_THAT(o.slots()[7].type, Eq(Corner::SE));
   EXPECT_THAT(o.slots()[7].c, Eq(Coord(3, 2)));
+
+  EXPECT_THAT(o.num_cols(), Eq(3));
+  ASSERT_THAT(o.num_rows(), Eq(3));
+  EXPECT_THAT(o.rows()[0], Eq(0b010));
+  EXPECT_THAT(o.rows()[1], Eq(0b111));
+  EXPECT_THAT(o.rows()[2], Eq(0b010));
 }
 
 }  // namespace

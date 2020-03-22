@@ -8,9 +8,10 @@ cc_library(
     hdrs = ["board.h"],
     deps = [
         ":tile",
-	"@com_google_glog//:glog",
+  	"@com_google_absl//absl/container:flat_hash_set",
   	"@com_google_absl//absl/strings",
 	"@com_google_absl//absl/strings:str_format",
+	"@com_google_glog//:glog",
     ],
 )
 
@@ -19,6 +20,7 @@ cc_test(
     srcs = ["board_test.cc"],
     deps = [
      	 ":board",
+   	 "@com_google_absl//absl/strings",
    	 "@com_google_glog//:glog",
 	 "@com_google_googletest//:gtest_main",
     ],

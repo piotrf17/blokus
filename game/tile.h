@@ -3,6 +3,8 @@
 
 #include <array>
 #include <cstdint>
+#include <iomanip>
+#include <iostream>
 #include <vector>
 
 namespace blokus {
@@ -18,19 +20,28 @@ struct Coord {
     c[0] = 0;
     c[1] = 0;
   }
-  Coord(int8_t x, int8_t y) {
-    c[0] = x;
-    c[1] = y;
+  Coord(int8_t row, int8_t col) {
+    c[0] = row;
+    c[1] = col;
   }
 
   int8_t operator[](int i) const { return c[i]; }
   int8_t& operator[](int i) { return c[i]; }
+
+  int8_t row() const { return c[0]; }
+  int8_t col() const { return c[1]; }
   
   int8_t c[2];
 };
 
 inline bool operator==(const Coord& lhs, const Coord& rhs) {
   return lhs.c[0] == rhs.c[0] && lhs.c[1] == rhs.c[1];
+}
+
+inline std::ostream& operator<<(std::ostream& os, const Coord& c) {
+  os << "(" << std::setw(2) << std::setfill(' ') << int(c.row())
+     << "," << std::setw(2) << std::setfill(' ') << int(c.col()) << ")";
+  return os;
 }
 
 // A "slot" represents a place where a "corner" can fit.
@@ -99,8 +110,39 @@ class TileOrientation {
   bool flip() const { return flip_; }
   Coord offset() const { return offset_; }
 
+  // Size of the tile in this orientation, in number of rows and columns.
+  int num_rows() const { return num_rows_; }
+  int num_cols() const { return num_cols_; }
+
+  // Bitmap representation of the rows of this tile.
+  // The least significant digit corresponds to the 0 column.
+  //
+  // For example, a tile like:
+  //
+  //   oo
+  //   o
+  //   oo
+  //
+  // Will have rows:
+  //
+  //   0b11
+  //   0b01
+  //   0b11
+  const std::vector<uint32_t>& rows() const { return rows_; }
+
+  // Like the above, but padded by one block in all adjacent directions.
+  // For the example above, this will be:
+  //
+  //   0b0110
+  //   0b1111
+  //   0b0111
+  //   0b1111
+  //   0b0110
+  const std::vector<uint32_t>& expanded_rows() const { return expanded_rows_; }
+
  private:
   void ComputeSlotsAndCorners();
+  void ComputeSlices();
   
   int rotation_;
   bool flip_;
@@ -108,6 +150,11 @@ class TileOrientation {
   Coord offset_;
   std::vector<Slot> slots_;
   std::vector<Corner> corners_;
+
+  int num_rows_ = 0;
+  int num_cols_ = 0;
+  std::vector<uint32_t> rows_;
+  std::vector<uint32_t> expanded_rows_;
 };
 
 // TODO(piotrf): update this comment, parts of it are not true anymore.
