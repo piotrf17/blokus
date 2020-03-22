@@ -55,9 +55,6 @@ class Board {
   bool IsPossible(const Move& move) const;
 
   // Returns a list of all possible moves for the given tile and color.
-  // TODO(piotrf): currently, this can list duplicates of essentially the same
-  // move, since the resulting board state may be the same for different
-  // coordinates and a different rotation.
   std::vector<Move> PossibleMoves(const Tile& tile, Color color) const;
 
   // Place a tile on the board. Returns true if the move was valid.
