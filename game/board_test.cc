@@ -24,6 +24,10 @@ std::vector<Coord> PlacedTile(const Tile& tile, const Placement& placement) {
   return coors;
 }
 
+uint8_t ColorToByte(Color color) {
+  return 1 << (color - 1);
+}
+
 // This class is very similar to Board, but uses the older and slower algorithms
 // for determining possible moves. We use it here to help test if the current
 // Board is correct.
@@ -43,7 +47,7 @@ class VerificationBoard {
  private:
   void PrintAllowable(const uint8_t board[kNumRows][kNumCols]) const;
   
-  uint8_t pieces_[kNumRows][kNumCols];
+  Color pieces_[kNumRows][kNumCols];
   // Frontier is the outer border of our movements. Every move must contain
   // a bit of frontier.
   uint8_t frontier_[kNumRows][kNumCols];
@@ -52,18 +56,24 @@ class VerificationBoard {
 
 VerificationBoard::VerificationBoard() {
   // Initially, there are no pieces on the board.
-  memset(pieces_, 0, kNumRows * kNumCols * sizeof(uint8_t));
+  for (int r = 0; r < kNumRows; ++r) {
+    for (int c = 0; c < kNumCols; ++c) {
+      pieces_[r][c] = INVALID;
+    }
+  }
 
   // Initially, you can only move in a corner. Place in turn order,
   // going clockwise from top-left (0,0).
   memset(frontier_, 0, kNumRows * kNumCols * sizeof(uint8_t));
-  frontier_[0][0] = BLUE;
-  frontier_[0][kNumCols - 1] = YELLOW;
-  frontier_[kNumRows - 1][kNumRows - 1] = RED;
-  frontier_[kNumRows - 1][0] = GREEN;
+  frontier_[0][0] = ColorToByte(BLUE);
+  frontier_[0][kNumCols - 1] = ColorToByte(YELLOW);
+  frontier_[kNumRows - 1][kNumRows - 1] = ColorToByte(RED);
+  frontier_[kNumRows - 1][0] = ColorToByte(GREEN);
 
   // Initially, everyone is allowed to move everywhere.
-  memset(allowed_, BLUE | YELLOW | RED | GREEN,
+  memset(allowed_,
+         ColorToByte(BLUE) | ColorToByte(YELLOW) |
+         ColorToByte(RED) | ColorToByte(GREEN),
          kNumRows * kNumCols * sizeof(uint8_t));
 }
 
@@ -84,14 +94,14 @@ bool VerificationBoard::IsPossible(const Move& move) const {
     }
 
     // Verify that we are allowed to move here.
-    if ((allowed_[r][c] & move.color) == 0) {
+    if ((allowed_[r][c] & ColorToByte(move.color)) == 0) {
       VLOG(1) << coord << " is not allowed!";
       return false;
     }
 
     // Keep track of whether or not we touch the frontier. We must touch in at
     // least on place.
-    contains_frontier |= frontier_[r][c] & move.color;
+    contains_frontier |= frontier_[r][c] & ColorToByte(move.color);
   }
 
   if (!contains_frontier) {
@@ -146,32 +156,46 @@ bool VerificationBoard::MakeMove(const Move& move) {
       }
       // If there is a piece horizontally or vertically separated, then
       // that color can't move here.
-      uint8_t allowed = BLUE | YELLOW | RED | GREEN;
-      if (r > 0 && pieces_[r - 1][c]) allowed &= ~pieces_[r - 1][c];
-      if (r < kNumRows - 1 && pieces_[r + 1][c]) allowed &= ~pieces_[r + 1][c];
-      if (c > 0 && pieces_[r][c - 1]) allowed &= ~pieces_[r][c - 1];
-      if (c < kNumCols - 1 && pieces_[r][c + 1]) allowed &= ~pieces_[r][c + 1];
+      uint8_t allowed = ColorToByte(BLUE) | ColorToByte(YELLOW) |
+          ColorToByte(RED) | ColorToByte(GREEN);
+      if (r > 0 && ColorToByte(pieces_[r - 1][c])) {
+        allowed &= ~ColorToByte(pieces_[r - 1][c]);
+      }
+      if (r < kNumRows - 1 && ColorToByte(pieces_[r + 1][c])) {
+        allowed &= ~ColorToByte(pieces_[r + 1][c]);
+      }
+      if (c > 0 && ColorToByte(pieces_[r][c - 1])) {
+        allowed &= ~ColorToByte(pieces_[r][c - 1]);
+      }
+      if (c < kNumCols - 1 && ColorToByte(pieces_[r][c + 1])) {
+        allowed &= ~ColorToByte(pieces_[r][c + 1]);
+      }
       allowed_[r][c] = allowed;
       // If there is a piece corner separated from us, and this is an allowed
       // spot, then this is on our frontier.
       uint8_t frontier = 0;
-      if (r > 0 && c > 0 && pieces_[r - 1][c - 1])
-        frontier |= pieces_[r - 1][c - 1];
-      if (r > 0 && c < kNumCols - 1 && pieces_[r - 1][c + 1])
-        frontier |= pieces_[r - 1][c + 1];
-      if (r < kNumRows - 1 && c > 0 && pieces_[r + 1][c - 1])
-        frontier |= pieces_[r + 1][c - 1];
-      if (r < kNumRows - 1 && c < kNumCols - 1 && pieces_[r + 1][c + 1])
-        frontier |= pieces_[r + 1][c + 1];
+      if (r > 0 && c > 0 && ColorToByte(pieces_[r - 1][c - 1])) {
+        frontier |= ColorToByte(pieces_[r - 1][c - 1]);
+      }
+      if (r > 0 && c < kNumCols - 1 && ColorToByte(pieces_[r - 1][c + 1])) {
+        frontier |= ColorToByte(pieces_[r - 1][c + 1]);
+      }
+      if (r < kNumRows - 1 && c > 0 && ColorToByte(pieces_[r + 1][c - 1])) {
+        frontier |= ColorToByte(pieces_[r + 1][c - 1]);
+      }
+      if (r < kNumRows - 1 && c < kNumCols - 1 &&
+          ColorToByte(pieces_[r + 1][c + 1])) {
+        frontier |= ColorToByte(pieces_[r + 1][c + 1]);
+      }
       frontier_[r][c] = frontier & allowed;
     }
   }
   // Always enforce initial frontier.
   // TODO(piotrf): clean up code duplication.
-  frontier_[0][0] = BLUE;
-  frontier_[0][kNumCols - 1] = YELLOW;
-  frontier_[kNumRows - 1][kNumCols - 1] = RED;
-  frontier_[kNumRows - 1][0] = GREEN;
+  frontier_[0][0] = ColorToByte(BLUE);
+  frontier_[0][kNumCols - 1] = ColorToByte(YELLOW);
+  frontier_[kNumRows - 1][kNumCols - 1] = ColorToByte(RED);
+  frontier_[kNumRows - 1][0] = ColorToByte(GREEN);
   
   return true;  
 }
@@ -188,7 +212,7 @@ void VerificationBoard::PrintAllowable(
     for (int c = 0; c < kNumCols; ++c) {
       std::string out;
       for (Color color : {BLUE, YELLOW, RED, GREEN}) {
-        if (board[r][c] & color)
+        if (board[r][c] & ColorToByte(color))
           out += AnsiColor(color) + "\u25a3";
         else
           out +=  " ";
@@ -211,8 +235,7 @@ void VerificationBoard::Print(bool debug) const {
     printf("%2d ", r);
     for (int c = 0; c < kNumCols; ++c) {
       if (pieces_[r][c]) {
-        std::string out =
-            AnsiColor(static_cast<Color>(pieces_[r][c])) + "\u25a3";
+        std::string out = AnsiColor(pieces_[r][c]) + "\u25a3";
         printf(" %s" ANSI_COLOR_RESET " ", out.c_str());
       } else {
         printf(" _ ");
@@ -454,10 +477,11 @@ TEST(BoardTest, MatchesVerificationBoard) {
       // Now, pick a move at random and make it.
       std::uniform_int_distribution<int> dist(0, all_moves.size() - 1);
       int move_idx = dist(eng);
+      LOG(INFO) << "  => Making move " << all_moves[move_idx].DebugString();
       board.MakeMove(all_moves[move_idx]);
       ver_board.MakeMove(all_moves[move_idx]);
       player_tiles[color][all_moves[move_idx].tile] = false;
-      board.Print();
+      board.Print(true);
     }
   }
 }

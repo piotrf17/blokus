@@ -97,16 +97,22 @@ std::string Move::DebugString() const {
 
 Board::Board() {
   // Initially, there are no pieces on the board.
-  memset(pieces_, 0, kNumRows * kNumCols * sizeof(uint8_t));
+  for (int r = 0; r < kNumRows; ++r) {
+    for (int c = 0; c < kNumCols; ++c) {
+      pieces_[r][c] = INVALID;
+    }
+  }
 
   // Initially, you can only move in a corner. Place in turn order,
   // going clockwise from top-left (0,0).
+  slots_.resize(5);
   slots_[BLUE].push_back(Slot{Coord(0, 0), Slot::SE});
   slots_[YELLOW].push_back(Slot{Coord(0, kNumCols - 1), Slot::SW});
   slots_[RED].push_back(Slot{Coord(kNumRows - 1, kNumCols - 1), Slot::NW});
   slots_[GREEN].push_back(Slot{Coord(kNumRows - 1, 0), Slot::NE});
 
   // Initially, everyone is allowed to move everywhere.
+  available_.resize(5);
   for (auto color : {BLUE, YELLOW, RED, GREEN}) {
     for (int row = 0; row < kNumRows; ++row) {
       available_[color].push_back(0xFFFFFFFF);
@@ -128,7 +134,7 @@ bool Board::IsPossible(const Move& move) const {
         - orientation.offset().row();
     const int c = move.placement.coord.col() + corner.c.col()
         - orientation.offset().col();
-    for (const Slot& slot : slots_.at(move.color)) {
+    for (const Slot& slot : slots_[move.color]) {
       if (slot.c.row() != r || slot.c.col() != c) continue;
       return IsPossible(slot, orientation, corner, move.color);
     }
@@ -156,7 +162,7 @@ bool Board::IsPossible(const Slot& slot,
   for (int block_row = 0; block_row < orientation.num_rows(); ++block_row) {
     const int board_row = block_row + start_row;
     const uint32_t slice = (orientation.rows()[block_row]) << start_col;
-    const uint32_t board_slice = available_.at(color)[board_row];
+    const uint32_t board_slice = available_[color][board_row];
     if ((slice | board_slice) != board_slice) {
       return false;
     }
@@ -177,7 +183,7 @@ std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
   move_template.tile = tile.index();
   move_template.color = color;
 
-  for (const Slot& slot : slots_.at(color)) {
+  for (const Slot& slot : slots_[color]) {
     VLOG(2) << "Looking at slot at " << slot.c;
     for (const TileOrientation& orientation : tile.orientations()) {
       VLOG(2) << "  Looking at orientation r=" << orientation.rotation()
@@ -271,8 +277,7 @@ void Board::Print(bool debug) const {
     printf("%2d ", r);
     for (int c = 0; c < kNumCols; ++c) {
       if (pieces_[r][c]) {
-        std::string out =
-            AnsiColor(static_cast<Color>(pieces_[r][c])) + "\u25a3";
+        std::string out = AnsiColor(pieces_[r][c]) + "\u25a3";
         printf(" %s" ANSI_COLOR_RESET " ", out.c_str());
       } else {
         printf(" _ ");

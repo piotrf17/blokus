@@ -9,12 +9,13 @@
 
 namespace blokus {
 
+// Note: these values are used as indexes, so they should not be changed.
 enum Color {
-  INVALID = 0x0,
-  BLUE = 0x1,
-  YELLOW = 0x2,
-  RED = 0x4,
-  GREEN = 0x8
+  INVALID = 0,
+  BLUE    = 1,
+  YELLOW  = 2,
+  RED     = 3,
+  GREEN   = 4,
 };
 
 Color NextColor(Color c);
@@ -70,15 +71,15 @@ class Board {
                   const TileOrientation& orientation,
                   const Corner& corner, Color color) const;
   
-  uint8_t pieces_[kNumRows][kNumCols];
+  Color pieces_[kNumRows][kNumCols];
 
-  // Bitwise representation of the rows in the board.
+  // Bitwise representation of the rows in the board, one for each color.
   // Column 0 corresponds to the least significant bit in each uint32_t.
   // A "1" means that the (row, col) is available for a piece, while a "0" means
   // that it is occupied.
-  std::map<Color, std::vector<uint32_t>> available_;
+  std::vector<std::vector<uint32_t>> available_;
 
-  std::map<Color, std::vector<Slot>> slots_;
+  std::vector<std::vector<Slot>> slots_;
 };
 
 inline bool operator==(const Placement& lhs, const Placement& rhs) {
