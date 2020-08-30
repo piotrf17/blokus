@@ -186,40 +186,6 @@ Tile kTiles[] = {
   }),
 };
 
-bool Corner::Fits(const Slot& slot) const {
-  switch (type) {
-    case NORTH:
-      return slot.type == Slot::SOUTH ||
-          slot.type == Slot::SW ||
-          slot.type == Slot::SE;
-    case WEST:
-      return slot.type == Slot::EAST ||
-          slot.type == Slot::SE ||
-          slot.type == Slot::NE;
-    case EAST:
-      return slot.type == Slot::WEST ||
-          slot.type == Slot::SW ||
-          slot.type == Slot::NW;
-    case SOUTH:
-      return slot.type == Slot::NORTH ||
-          slot.type == Slot::NW ||
-          slot.type == Slot::NE;
-    case SE:
-      return slot.type == Slot::NW;
-    case NE:
-      return slot.type == Slot::SW;
-    case NW:
-      return slot.type == Slot::SE;
-    case SW:
-      return slot.type == Slot::NE;
-    case ALL:
-      return true;
-    case INVALID:
-      LOG(FATAL) << "invalid corner type";
-  }
-  LOG(FATAL) << "can't reach here";
-}
-
 TileOrientation::TileOrientation(int rotation, bool flip,
                                  std::vector<Coord> coords, Coord offset)
     : rotation_(rotation), flip_(flip), coords_(std::move(coords)),

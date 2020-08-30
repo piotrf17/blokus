@@ -146,7 +146,7 @@ bool Board::IsPossible(const Move& move) const {
 bool Board::IsPossible(const Slot& slot,
                        const TileOrientation& orientation,
                        const Corner& corner, Color color) const {
-  if (!corner.Fits(slot)) return false;
+  if (!CornerFitsSlot(corner, slot)) return false;
 
   // Compute the coordinates of the upper-left corner.
   const int start_row = slot.c.row() - corner.c.row();

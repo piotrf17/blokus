@@ -21,6 +21,7 @@ namespace {
 // BM_Rollout    4244384 ns      4244421 ns          164  (Bitmaps w/o dup fix)
 // BM_Rollout    4501754 ns      4501773 ns          155  (Bitmaps w/ dup fix)
 // BM_Rollout    4154011 ns      4154033 ns          169  (Remove std::map)
+// BM_Rollout    2510316 ns      2510315 ns          276  (opt CornerFitsSlot)
 
 static void BM_Rollout(benchmark::State& state) {
   Game game;

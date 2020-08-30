@@ -87,10 +87,25 @@ struct Corner {
 
   Coord c;
   Type type;
-
-  // TODO(piotrf): this should be a free function.
-  bool Fits(const Slot& slot) const;
 };
+
+inline bool CornerFitsSlot(const Corner& corner, const Slot& slot) {
+  static bool fit_map[10][9] = {
+  // I  N  W  E  S  SE NE NW SW
+    {0, 0, 0, 0, 0, 0, 0, 0, 0},  // INVALID
+    {0, 0, 0, 0, 1, 1, 0, 0, 1},  // NORTH
+    {0, 0, 0, 1, 0, 1, 1, 0, 0},  // WEST
+    {0, 0, 1, 0, 0, 0, 0, 1, 1},  // EAST
+    {0, 1, 0, 0, 0, 0, 1, 1, 0},  // SOUTH
+    {0, 0, 0, 0, 0, 0, 0, 1, 0},  // SE
+    {0, 0, 0, 0, 0, 0, 0, 0, 1},  // NE
+    {0, 0, 0, 0, 0, 1, 0, 0, 0},  // NW
+    {0, 0, 0, 0, 0, 0, 1, 0, 0},  // SW
+    {0, 1, 1, 1, 1, 1, 1, 1, 1},  // ALL
+  };
+  return fit_map[corner.type][slot.type];
+}
+
 
 // A predetermined orientation of a tile.
 // Each orientation corresponds to a physically different placement of a tile.
