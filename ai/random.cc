@@ -9,7 +9,7 @@ Move RandomAI::SelectMove(const Game& game) {
     played_tiles_.insert(move.tile);
     return move;
   }
-  return Move::EmptyMove(color());
+  return Move::EmptyMove(game.current_color());
 }
 
 }  // namespace blokus

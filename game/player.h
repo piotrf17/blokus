@@ -10,14 +10,15 @@ namespace blokus {
 // AI, etc.
 class Player {
  public:
-  explicit Player(Color color) : color_(color) {}
+  // `player_id` must be a unique number from 0...num_players.
+  explicit Player(int player_id) : player_id_(player_id) {}
   
   virtual Move SelectMove(const Game& board) = 0;
 
-  Color color() const { return color_; }
+  int player_id() const { return player_id_; }
   
  private:
-  Color color_;
+  int player_id_;
 };
 
 }  // namespace blokus

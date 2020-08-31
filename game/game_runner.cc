@@ -7,22 +7,25 @@
 
 namespace blokus {
 
-void GameRunner::AddPlayer(Color color, std::unique_ptr<Player> player) {
-  CHECK(players_.count(color) == 0) << "Already added a player for "
-                                    << ColorToString(color);
-  players_[color] = std::move(player);
+void GameRunner::AddPlayer(std::unique_ptr<Player> player) {
+  CHECK_LT(players_.size(), num_players_)
+      << "Added too many players, game is for " << num_players_;
+  CHECK_EQ(player->player_id(), players_.size())
+      << "expected player with id " << players_.size();
+  players_.push_back(std::move(player));
 }
 
 GameResult GameRunner::Play() {
-  CHECK(players_.size() == 4) << "Not enough players.";
+  CHECK_EQ(players_.size(), num_players_) << "Not enough players.";
 
-  Game game;
+  Game game(num_players_);
   while (!game.Finished()) {
-    Move move = players_[game.current_color()]->SelectMove(game);
+    int current_player = game.current_player();
+    Move move = players_[current_player]->SelectMove(game);
     VLOG(1) << move.DebugString();
-    CHECK(game.MakeMove(move)) << ColorToString(game.current_color())
-                               << " wants to play an invalid move: "
-                               << move.DebugString();
+    CHECK(game.MakeMove(move))
+        << ColorToString(game.current_color()) << " (player " << current_player
+        << ") wants to play an invalid move: " << move.DebugString();
     for (auto& observer : observers_) {
       observer(game.board(), move);
     }

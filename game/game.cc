@@ -6,12 +6,14 @@
 
 namespace blokus {
 
-Game::Game() {
+Game::Game(int num_players) {
+  CHECK(num_players == 2 || num_players == 4);
+  num_players = num_players;
   player_tiles_[BLUE] = std::vector<bool>(kNumTiles, true);
   player_tiles_[YELLOW] = std::vector<bool>(kNumTiles, true);
   player_tiles_[RED] = std::vector<bool>(kNumTiles, true);
   player_tiles_[GREEN] = std::vector<bool>(kNumTiles, true);
-  players_with_moves_ = {BLUE, YELLOW, RED, GREEN};  
+  players_with_moves_ = {BLUE, YELLOW, RED, GREEN};
 }
 
 bool Game::MakeMove(const Move& move) {
@@ -49,6 +51,7 @@ bool Game::MakeMove(const Move& move) {
 
   moves_.push_back(move);
   current_color_ = NextColor(current_color_);
+  current_player_ = (current_player_ + 1) % num_players_;
 
   return true;
 }
@@ -69,10 +72,9 @@ bool Game::Finished() const {
 }
 
 GameResult Game::Result() const {
-  static const std::vector<Color> kPlayers = {BLUE, YELLOW, RED, GREEN};
-  GameResult result;
-  int max_score = -100000;
-  for (Color color : kPlayers) {
+  // Score each color.
+  std::map<Color, int> color_to_score;
+  for (Color color : {BLUE, YELLOW, RED, GREEN}) {
     // Compute the score.
     int score = 0;
     for (int tile = 0; tile < 21; ++tile) {
@@ -84,13 +86,32 @@ GameResult Game::Result() const {
       if (played_one_last_.count(color)) score = 20;
       else score = 15;
     }
-    result.scores[color] = score;
-    // Record the max score as the winner.
-    if (score > max_score) {
-      max_score = score;
-      result.winner = color;
+    color_to_score[color] = score;
+  }
+
+  // Convert color scores to player scores.
+  GameResult result;
+  
+  result.scores.resize(num_players_);
+  if (num_players_ == 2) {
+    result.scores[0] = color_to_score[BLUE] + color_to_score[RED];
+    result.scores[1] = color_to_score[YELLOW] + color_to_score[GREEN];
+  } else {
+    result.scores[0] = color_to_score[BLUE];
+    result.scores[1] = color_to_score[YELLOW];
+    result.scores[2] = color_to_score[RED];
+    result.scores[3] = color_to_score[GREEN];
+  }
+  
+  // Compute the winner.
+  int max_score = -10000;
+  for (int i = 0; i < result.scores.size(); ++i) {
+    if (result.scores[i] > max_score) {
+      result.winner_id = i;
+      max_score = result.scores[i];
     }
   }
+  
   return result;
 }
 

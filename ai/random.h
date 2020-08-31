@@ -10,7 +10,7 @@ namespace blokus {
 // An AI that just plays a random move from the set of possible moves.
 class RandomAI : public Player {
  public:
-  explicit RandomAI(Color color) : Player(color) {}
+  explicit RandomAI(int player_id) : Player(player_id) {}
 
   Move SelectMove(const Game& game) override;
 

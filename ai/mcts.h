@@ -9,39 +9,39 @@
 
 namespace blokus {
 
-// A node in the game tree.
-// Technically, this also includes edges going out from this node.
-struct Node {
-  std::string DebugString() const;
+// Computes a rollout of the given game, using random actions for all players
+// moves. Returns the id of the winning player.
+int Rollout(Game game);
 
-  // The move that caused us to arrive at this node.
-  Move move;
+struct MctsOptions {
+  // The exploration parameter for UCB1.
+  // Setting this higher favors exploration more over exploitation.
+  // Theory dictates that this should be approximately sqrt(2).
+  double c = 1.4;
 
-  // The number of wins tracked for having made the above move.
-  int wins = 0;
+  // The number of iterations of MCTS to run per move, with each iteration
+  // consisting of selection of a leaf node, expansion of that node, rollout,
+  // and backpropogation of rollout results.
+  int num_iterations = 10000;
 
-  // The number of times rollouts have visited the above move.
-  int visits = 0;
-
-  Node* parent = nullptr;
-  std::vector<std::unique_ptr<Node>> children;
+  // The number of random rollouts to run per MCTS iteration.
+  int num_rollouts_per_iteration = 1;
 };
 
-// Computes a rollout of the given game, using random actions for all players
-// moves. Returns the winner of the game.
-Color Rollout(Game game);
+struct Node;
 
+// An AI player that uses Monte Carlo Tree Search (MCTS).
 class MctsAI : public Player {
  public:
-  explicit MctsAI(Color color) :
-      Player(color), tree_(std::make_unique<Node>()) {}
+  MctsAI(int player_id, const MctsOptions& options = {});
+  ~MctsAI();
 
   Move SelectMove(const Game& board) override;
 
  private:
   void Iteration(Game game);
 
-  double c_ = 1.4;
+  MctsOptions options_;
 
   std::set<int> played_tiles_;
 

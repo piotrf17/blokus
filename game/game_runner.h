@@ -14,11 +14,23 @@ namespace blokus {
 // with the latest move as well as the current board state.
 typedef std::function<void(const Board& board, const Move& move)> ObserverFunc;
 
-// Class for managing a game of Blokus. Currently only handles 4 player games.
+// Class for managing a game of Blokus.
 class GameRunner {
  public:
-  // Add a player of the given color to the game.
-  void AddPlayer(Color color, std::unique_ptr<Player> player);
+  // `num_players` must be either 2 or 4.
+  explicit GameRunner(int num_players) : num_players_(num_players) {}
+
+  // Add a player to the game.
+  //
+  // Players are added in order. For a two player game, this is:
+  //   0: BLUE, RED
+  //   1: YELLOW, GREEN
+  // For a four player game, this is:
+  //   0: BLUE
+  //   1: YELLOW
+  //   2: RED
+  //   3: GREEN
+  void AddPlayer(std::unique_ptr<Player> player);
 
   // Add an observer, will be called after every move.
   void AddObserver(ObserverFunc observer) {
@@ -29,7 +41,8 @@ class GameRunner {
   GameResult Play();
   
  private:
-  std::map<Color, std::unique_ptr<Player>> players_;
+  int num_players_;
+  std::vector<std::unique_ptr<Player>> players_;
   std::vector<ObserverFunc> observers_;
 };
 

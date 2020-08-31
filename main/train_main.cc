@@ -11,11 +11,14 @@
 DEFINE_int32(seed, -1, "Random number seed. If -1, use time.");
 DEFINE_int32(num_games, 10, "Number of games to play.");
 DEFINE_bool(print_board, false, "Print the board during play.");
+DEFINE_int32(num_players, 2, "Number of players, 2 or 4.");
 
 int main(int argc, char **argv) {
   // Initialize command line flags and logging.
   google::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
+
+  CHECK(FLAGS_num_players == 2 || FLAGS_num_players == 4);
 
   if (FLAGS_seed != -1) {
     srand(FLAGS_seed);
@@ -23,36 +26,35 @@ int main(int argc, char **argv) {
     srand(time(NULL));
   }
 
-  std::map<blokus::Color, int> total_scores;
+  std::vector<int> total_scores(FLAGS_num_players, 0);
 
   absl::Time start = absl::Now();
   for (int i = 0; i < FLAGS_num_games; ++i) {
-    blokus::GameRunner game;
-    game.AddPlayer(blokus::BLUE,
-                   absl::make_unique<blokus::MctsAI>(blokus::BLUE));
-    game.AddPlayer(blokus::YELLOW,
-                   absl::make_unique<blokus::RandomAI>(blokus::YELLOW));
-    game.AddPlayer(blokus::RED,
-                   absl::make_unique<blokus::RandomAI>(blokus::RED));
-    game.AddPlayer(blokus::GREEN,
-                   absl::make_unique<blokus::RandomAI>(blokus::GREEN));
+    blokus::GameRunner game(FLAGS_num_players);
+    game.AddPlayer(absl::make_unique<blokus::MctsAI>(
+        0, blokus::MctsOptions{1.4, 10000, 1}));
+    game.AddPlayer(absl::make_unique<blokus::MctsAI>(
+        1, blokus::MctsOptions{1.4, 10000, 1}));
+    if (FLAGS_num_players == 4) {
+      game.AddPlayer(absl::make_unique<blokus::RandomAI>(2));
+      game.AddPlayer(absl::make_unique<blokus::RandomAI>(3));
+    }
 
     if (FLAGS_print_board) {
       game.AddObserver(blokus::BoardPrintingObserver());
     }
     
     auto result = game.Play();
-    for (auto iter : result.scores) {
-      total_scores[iter.first] += iter.second;
+    for (int i = 0; i < FLAGS_num_players; ++i) {
+      total_scores[i] += result.scores[i];
     }
   }
   absl::Time end = absl::Now();
 
   LOG(INFO) << "Played " << FLAGS_num_games << " games in " << (end - start);
   LOG(INFO) << "Average scores: ";
-  for (auto iter : total_scores) {
-    LOG(INFO) << blokus::ColorToString(iter.first) << ": "
-              << (iter.second / FLAGS_num_games);
+  for (int i = 0; i < FLAGS_num_players; ++i) {
+    LOG(INFO) << i << ": " << (total_scores[i] / FLAGS_num_games);
   }
   
   return 0;
