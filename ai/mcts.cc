@@ -65,7 +65,8 @@ Node* SelectNode(Node* node, Game* game, double c) {
 }
 
 void ExpandNode(const Game& game, Node* node) {
-  if (!node->children.empty()) return;
+  CHECK(node->children.empty()) << "Expanding a non-leaf node: "
+                                << node->DebugString();
 
   // Look for possible moves, and if found, create a child for each move.
   std::vector<Move> possible_moves = game.PossibleMoves();
@@ -121,10 +122,10 @@ MctsAI::~MctsAI() {}
 void MctsAI::Iteration(Game game) {  
   // Select and expand a node.
   Node* node = SelectNode(tree_.get(), &game, options_.c);
+  if (game.Finished()) return;
   ExpandNode(game, node);
 
-  // Arbitrarily pick the first child to rollout on.
-  node = node->children[0].get();
+  // Run rollouts on the selected node.
   for (int i = 0; i < options_.num_rollouts_per_iteration; ++i) {
     VLOG(3) << "  MCTS running rollout " << i;
     int winner = Rollout(game);
@@ -170,17 +171,26 @@ Move MctsAI::SelectMove(const Game& game) {
   }
 
   // Expand out the root, in case we didn't find it above.
-  ExpandNode(game, tree_.get());
+  if (tree_->children.empty()) {
+    ExpandNode(game, tree_.get());
+  }
+  CHECK_GT(tree_->children.size(), 0);
 
+  // If there is only a single move available, take it. In theory, we could
+  // spend some time planning for future moves, but:
+  //   1) we're not playing in a timed environment.
+  //   2) it's rare that a single move will lead to many future moves.
+  if (tree_->children.size() == 1) {
+    tree_ = std::move(tree_->children[0]);
+    return tree_->move;
+  }
+
+  // Run MCTS iterations.
   for (int i = 0; i < options_.num_iterations; ++i) {
     if (i % 100 == 0) {
       VLOG(2) << "MCTS running iteration " << i;
     }
     Iteration(game);
-  }
-
-  if (tree_->children.empty()) {
-    return Move::EmptyMove(game.current_color());
   }
 
   // Pick the best move.

@@ -11,7 +11,10 @@
 DEFINE_int32(seed, -1, "Random number seed. If -1, use time.");
 DEFINE_int32(num_games, 10, "Number of games to play.");
 DEFINE_bool(print_board, false, "Print the board during play.");
+
 DEFINE_int32(num_players, 2, "Number of players, 2 or 4.");
+DEFINE_int32(num_mcts_iterations, 10000,
+             "Number of MCTS iterations to run per move.");
 
 int main(int argc, char **argv) {
   // Initialize command line flags and logging.
@@ -32,12 +35,14 @@ int main(int argc, char **argv) {
   for (int i = 0; i < FLAGS_num_games; ++i) {
     blokus::GameRunner game(FLAGS_num_players);
     game.AddPlayer(absl::make_unique<blokus::MctsAI>(
-        0, blokus::MctsOptions{1.4, 10000, 1}));
+        0, blokus::MctsOptions{1.4, FLAGS_num_mcts_iterations, 1}));
     game.AddPlayer(absl::make_unique<blokus::MctsAI>(
-        1, blokus::MctsOptions{1.4, 10000, 1}));
+        1, blokus::MctsOptions{1.4, FLAGS_num_mcts_iterations, 1}));
     if (FLAGS_num_players == 4) {
-      game.AddPlayer(absl::make_unique<blokus::RandomAI>(2));
-      game.AddPlayer(absl::make_unique<blokus::RandomAI>(3));
+      game.AddPlayer(absl::make_unique<blokus::MctsAI>(
+          2, blokus::MctsOptions{1.4, FLAGS_num_mcts_iterations, 1}));
+      game.AddPlayer(absl::make_unique<blokus::MctsAI>(
+          3, blokus::MctsOptions{1.4, FLAGS_num_mcts_iterations, 1}));
     }
 
     if (FLAGS_print_board) {
