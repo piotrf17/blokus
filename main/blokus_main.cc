@@ -6,6 +6,7 @@
 #include <thread>
 
 #include "absl/memory/memory.h"
+#include "absl/strings/str_cat.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include <jsoncpp/json/writer.h>
@@ -18,10 +19,10 @@ namespace blokus {
 
 class WebPlayer : public Player {
  public:
-  WebPlayer(Color color, HttpServer* server) :
-      Player(color), server_(server) {
+  WebPlayer(int player_id, HttpServer* server) :
+      Player(player_id), server_(server) {
     server_->RegisterHandler(
-        "/game/" + ColorToString(color) + "/place",
+        absl::StrCat("/game/", player_id, "/place"),
         [this](HttpServer::Request* request) {
           this->Handle(request);
         });
@@ -29,7 +30,7 @@ class WebPlayer : public Player {
   
   Move SelectMove(const Game& game __attribute__ ((unused))) {
     // Block until we have a move ready.
-    LOG(INFO) << ColorToString(color()) << " is waiting for a UI move.";
+    LOG(INFO) << player_id() << " is waiting for a UI move.";
     while (true) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       std::lock_guard<std::mutex> lock(m_);
@@ -39,6 +40,7 @@ class WebPlayer : public Player {
     // played this move.
     move_ready_ = false;
     // TODO(piotrf): return "pass" from frontend.
+    move_.color = game.current_color();
     return move_;
   }
 
@@ -51,7 +53,6 @@ class WebPlayer : public Player {
     }
     // Parse the move out of the json.
     const Json::Value& data = request->json();
-    move_.color = color();
     move_.tile = data["tile"].asInt();
     move_.placement.rotation = data["move"]["rotation"].asInt();
     move_.placement.flip = data["move"]["flip"].asInt();
@@ -127,15 +128,11 @@ int main(int argc, char **argv) {
   CHECK(server.Start());
   LOG(INFO) << "Server is running on localhost:7777";
 
-  blokus::GameRunner game;
-  game.AddPlayer(blokus::BLUE,
-                 absl::make_unique<blokus::WebPlayer>(blokus::BLUE, &server));
-  game.AddPlayer(blokus::YELLOW,
-                 absl::make_unique<blokus::RandomAI>(blokus::YELLOW));
-  game.AddPlayer(blokus::RED,
-                 absl::make_unique<blokus::RandomAI>(blokus::RED));
-  game.AddPlayer(blokus::GREEN,
-                 absl::make_unique<blokus::RandomAI>(blokus::GREEN));  
+  blokus::GameRunner game(4);
+  game.AddPlayer(absl::make_unique<blokus::WebPlayer>(0, &server));
+  game.AddPlayer(absl::make_unique<blokus::RandomAI>(1));
+  game.AddPlayer(absl::make_unique<blokus::RandomAI>(2));
+  game.AddPlayer(absl::make_unique<blokus::RandomAI>(3));  
 
   blokus::MoveForwarder forwarder;
   game.AddObserver([&forwarder](const blokus::Board& board,

@@ -1,5 +1,6 @@
 #include "util/http_server.h"
 
+#include "absl/strings/match.h"
 #include <fcntl.h>
 #include <glog/logging.h>
 #include <jsoncpp/json/reader.h>
@@ -115,6 +116,7 @@ int HttpServer::HandleRequest(
   const HandlerInfo& info = server->handlers_.at(url);
   MHD_Response* response = nullptr;
   int status = 200;
+  std::string mimetype = "";
 
   if (!strcmp(method, "POST")) {
     if (server->post_processor_ == nullptr) {
@@ -166,12 +168,17 @@ int HttpServer::HandleRequest(
                 << info.static_path.c_str();
         return server->Return404(connection);
       }
+      // Set the mimetype based on the file suffix.
+      if (absl::EndsWith(info.static_path, ".js")) {
+        mimetype = "application/javascript";
+      }
       struct stat s;
       CHECK(fstat(fd, &s) != -1);
       response = MHD_create_response_from_fd(s.st_size, fd);
       status = 200;
     }
   }
+  MHD_add_response_header(response, "Content-Type", mimetype.c_str());
   int ret = MHD_queue_response(connection, status, response);
   MHD_destroy_response(response);
   return ret;

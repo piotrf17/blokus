@@ -8,6 +8,7 @@ cc_binary(
         "//game:game_runner",
         "//util:http_server",
         "@com_google_absl//absl/memory",
+  	"@com_google_absl//absl/strings",
 	"@com_github_gflags_gflags//:gflags",
 	"@com_google_glog//:glog",
     ],

@@ -1,7 +1,5 @@
-var tiles = tiles || {};
-
 // Raw tile data.
-tiles.RAW_TILES = [
+const RAW_TILES = [
   // 1 block tiles.
   [  // 0.
     [1, 0, 0, 0, 0],
@@ -157,60 +155,64 @@ tiles.RAW_TILES = [
 ];
 
 // Container for tiles, filled in via buildTiles(), made up of Tile objects.
-tiles.TILES = []
+const TILES = []
 
-tiles.Tile = function(data) {
-  this.data = data
-  // Compute the height and width of the final tile, and also assemble
-  // a list of the coordinates for quicker lookup later.
-  this.width = 0;
-  this.height = 0;
-  this.coors = []
-  for (var i = 0; i < 5; ++i) {
-    for (var j = 0; j < 5; ++j) {
-      if (data[i][j]) {
-	this.width = Math.max(this.width, i);
-	this.height = Math.max(this.height, j);
-	this.coors.push([i, j]);
+class Tile {
+  constructor(data) {
+    this.data = data
+    // Compute the height and width of the final tile, and also assemble
+    // a list of the coordinates for quicker lookup later.
+    this.width = 0;
+    this.height = 0;
+    this.coors = []
+    for (var i = 0; i < 5; ++i) {
+      for (var j = 0; j < 5; ++j) {
+	if (data[i][j]) {
+	  this.width = Math.max(this.width, i);
+	  this.height = Math.max(this.height, j);
+	  this.coors.push([i, j]);
+	}
       }
     }
+    this.height += 1;
+    this.width += 1;
   }
-  this.height += 1;
-  this.width += 1;
+
+  draw(ctx, x, y, rotation, flip, color, scale, border=-1) {
+    ctx.fillStyle = color;
+    for (var i = 0; i < this.coors.length; ++i) {
+      var tX, tY;
+      switch(rotation) {
+        case 0:
+          tX = this.coors[i][0];
+          tY = this.coors[i][1];
+          break;
+        case 1:
+          tX = -this.coors[i][1];
+          tY = this.coors[i][0];
+          break;
+        case 2:
+          tX = -this.coors[i][0];
+          tY = -this.coors[i][1];
+          break;
+        case 3:
+          tX = this.coors[i][1];
+          tY = -this.coors[i][0];
+          break;
+      }
+      if (flip) {
+        tX = -tX;
+      }
+      ctx.fillRect(scale * tX + x - border, scale * tY + y - border,
+    		   scale + 2 * border, scale + 2 * border);
+    }
+  }
 }
 
-tiles.Tile.prototype.draw = function(ctx, x, y, rotation, flip, color, scale, border=-1) {
-  ctx.fillStyle = color;
-  for (var i = 0; i < this.coors.length; ++i) {
-    var tX, tY;
-    switch(rotation) {
-      case 0:
-        tX = this.coors[i][0];
-        tY = this.coors[i][1];
-        break;
-      case 1:
-        tX = -this.coors[i][1];
-        tY = this.coors[i][0];
-        break;
-      case 2:
-        tX = -this.coors[i][0];
-        tY = -this.coors[i][1];
-        break;
-      case 3:
-        tX = this.coors[i][1];
-        tY = -this.coors[i][0];
-        break;
-    }
-    if (flip) {
-      tX = -tX;
-    }
-    ctx.fillRect(scale * tX + x - border, scale * tY + y - border,
-		 scale + 2 * border, scale + 2 * border);
+function buildTiles() {
+  for (var t = 0; t < RAW_TILES.length; ++t) {
+    TILES.push(new Tile(RAW_TILES[t]));
   }
 }
 
-tiles.buildTiles = function() {
-  for (var t = 0; t < tiles.RAW_TILES.length; ++t) {
-    tiles.TILES.push(new tiles.Tile(tiles.RAW_TILES[t]));
-  }
-}
+export {buildTiles, TILES};
