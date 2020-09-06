@@ -11,7 +11,7 @@ namespace {
 // The coordinates do not necessarily have to be in any order.
 // NB: this is only for normalized coordinates on a Tile, i.e. the values are
 // from 0 to 5.
-bool CoordsMatch(const std::vector<Coord>& a, const std::vector<Coord>& b) {
+bool CoordsMatch(absl::Span<const Coord> a, absl::Span<const Coord> b) {
   CHECK_EQ(a.size(), b.size());
   std::unordered_set<int> a_hashes;
   for (const Coord& coord : a) {
@@ -189,7 +189,7 @@ Tile kTiles[] = {
 TileOrientation::TileOrientation(int rotation, bool flip,
                                  std::vector<Coord> coords, Coord offset)
     : rotation_(rotation), flip_(flip), coords_(std::move(coords)),
-      offset_(std::move(offset)) {
+      offset_(std::move(offset)), rows_(5, 0x0), expanded_rows_(7, 0x0) {
   ComputeSlotsAndCorners();
   ComputeSlices();
 }
@@ -271,7 +271,6 @@ void TileOrientation::ComputeSlotsAndCorners() {
 }
 
 void TileOrientation::ComputeSlices() {
-  rows_.resize(5, 0x0);
   for (const Coord& coord : coords_) {
     CHECK_GE(coord.row(), 0);
     CHECK_LT(coord.row(), 5);
@@ -283,9 +282,7 @@ void TileOrientation::ComputeSlices() {
     num_rows_ = std::max(num_rows_, int(coord.row()) + 1);
     num_cols_ = std::max(num_cols_, int(coord.col()) + 1);
   }
-  rows_.resize(num_rows_);
 
-  expanded_rows_.resize(num_rows_ + 2, 0x0);
   for (const Coord& coord : coords_) {
     expanded_rows_[coord.row()] |= 1 << (coord.col() + 1);
     expanded_rows_[coord.row() + 1] |= 1 << (coord.col() + 0);

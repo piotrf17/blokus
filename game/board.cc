@@ -3,7 +3,6 @@
 #include <cstring>
 #include <glog/logging.h>
 
-#include "absl/container/flat_hash_set.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 
@@ -39,6 +38,8 @@ int PlacementHash(const Placement& p) {
   int rc = p.coord.row() * Board::kNumCols + p.coord.col();
   return rc * 8 + p.rotation * 2 + p.flip;
 }
+constexpr int kMaxRc = (Board::kNumRows-1)*Board::kNumCols+Board::kNumCols-1;
+constexpr int kMaxPlacementHash = kMaxRc * 8 + 3 * 2 + 1;
 
 }  // namespace
 
@@ -140,22 +141,17 @@ std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
 
   // Prevent duplicate moves that can occur when different corner/slot combos
   // result in the same exact placement.
-  absl::flat_hash_set<int> placement_hashes(10);
+  bool placement_hashes[kMaxPlacementHash];
+  std::memset(placement_hashes, 0, sizeof placement_hashes);
 
   Move move_template;
   move_template.tile = tile.index();
   move_template.color = color;
 
   for (const Slot& slot : slots_[color]) {
-    VLOG(2) << "Looking at slot at " << slot.c;
     for (const TileOrientation& orientation : tile.orientations()) {
-      VLOG(2) << "  Looking at orientation r=" << orientation.rotation()
-                << " f=" << orientation.flip()
-                << " offset=" << orientation.offset();
       for (const Corner& corner : orientation.corners()) {
-        VLOG(2) << "    Looking at corner at " << corner.c;
         if (IsPossible(slot, orientation, corner, color)) {
-          VLOG(2) << "      Possible!";
           Move move = move_template;
           move.placement.coord =
               Coord(slot.c[0] + orientation.offset()[0] - corner.c[0],
@@ -163,7 +159,9 @@ std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
           move.placement.rotation = orientation.rotation();
           move.placement.flip = orientation.flip();
 
-          if (placement_hashes.insert(PlacementHash(move.placement)).second) {
+          const int hash = PlacementHash(move.placement);
+          if (placement_hashes[hash] == false) {
+            placement_hashes[hash] = true;
             moves.push_back(std::move(move));
           }
         }

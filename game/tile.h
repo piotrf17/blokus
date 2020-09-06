@@ -6,6 +6,8 @@
 #include <iostream>
 #include <vector>
 
+#include "absl/types/span.h"
+
 #include "game/defs.h"
 
 namespace blokus {
@@ -82,10 +84,10 @@ class TileOrientation {
   TileOrientation(int rotation, bool flip, std::vector<Coord> coords,
                   Coord offset);
   
-  const std::vector<Coord>& coords() const { return coords_; }
+  absl::Span<const Coord> coords() const { return coords_; }
 
-  const std::vector<Slot>& slots() const { return slots_; }
-  const std::vector<Corner>& corners() const { return corners_; }
+  absl::Span<const Slot> slots() const { return slots_; }
+  absl::Span<const Corner> corners() const { return corners_; }
 
   int rotation() const { return rotation_; }
   bool flip() const { return flip_; }
@@ -109,7 +111,7 @@ class TileOrientation {
   //   0b11
   //   0b01
   //   0b11
-  const std::vector<uint32_t>& rows() const { return rows_; }
+  absl::Span<const uint32_t> rows() const { return rows_; }
 
   // Like the above, but padded by one block in all adjacent directions.
   // For the example above, this will be:
@@ -119,7 +121,9 @@ class TileOrientation {
   //   0b0111
   //   0b1111
   //   0b0110
-  const std::vector<uint32_t>& expanded_rows() const { return expanded_rows_; }
+  absl::Span<const uint32_t> expanded_rows() const {
+    return expanded_rows_;
+  }
 
  private:
   void ComputeSlotsAndCorners();
