@@ -24,7 +24,7 @@ namespace {
 // BM_Rollout    2510316 ns      2510315 ns          276  (opt CornerFitsSlot)
 
 static void BM_Rollout(benchmark::State& state) {
-  Game game;
+  Game game(4);
   for (auto _ : state) {
     Rollout(game);
   }

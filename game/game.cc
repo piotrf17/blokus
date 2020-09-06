@@ -6,9 +6,8 @@
 
 namespace blokus {
 
-Game::Game(int num_players) {
-  CHECK(num_players == 2 || num_players == 4);
-  num_players = num_players;
+Game::Game(int num_players) : num_players_(num_players) {
+  CHECK(num_players_ == 2 || num_players_ == 4);
   player_tiles_[BLUE] = std::vector<bool>(kNumTiles, true);
   player_tiles_[YELLOW] = std::vector<bool>(kNumTiles, true);
   player_tiles_[RED] = std::vector<bool>(kNumTiles, true);
