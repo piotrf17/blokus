@@ -3,46 +3,12 @@
 
 #include <array>
 #include <cstdint>
-#include <iomanip>
 #include <iostream>
 #include <vector>
 
+#include "game/defs.h"
+
 namespace blokus {
-
-// Coord represents a 2-d coordinate, either local to a given tile or on the
-// board. In both cases, think of this coordinate as the (row, column) in a
-// matrix. (0, 0) represents the upper-left, while (0, Board::kWidth) is the
-// upper-right.
-// TODO(piotrf): this should probably go in a separate file (along with
-// Move and Color.
-struct Coord {
-  Coord() {
-    c[0] = 0;
-    c[1] = 0;
-  }
-  Coord(int8_t row, int8_t col) {
-    c[0] = row;
-    c[1] = col;
-  }
-
-  int8_t operator[](int i) const { return c[i]; }
-  int8_t& operator[](int i) { return c[i]; }
-
-  int8_t row() const { return c[0]; }
-  int8_t col() const { return c[1]; }
-  
-  int8_t c[2];
-};
-
-inline bool operator==(const Coord& lhs, const Coord& rhs) {
-  return lhs.c[0] == rhs.c[0] && lhs.c[1] == rhs.c[1];
-}
-
-inline std::ostream& operator<<(std::ostream& os, const Coord& c) {
-  os << "(" << std::setw(2) << std::setfill(' ') << int(c.row())
-     << "," << std::setw(2) << std::setfill(' ') << int(c.col()) << ")";
-  return os;
-}
 
 // A "slot" represents a place where a "corner" can fit.
 // Each tile has a number of slots, at the locations where another piece could
@@ -210,6 +176,8 @@ class Tile {
   const std::vector<TileOrientation>& orientations() const {
     return orientations_;
   }
+
+  Placement Canonicalize(Placement placement) const;
   
  private:
   void ComputeTransformations();

@@ -144,7 +144,6 @@ bool VerificationBoard::MakeMove(const Move& move) {
   for (const Coord& coord : coords) {
     pieces_[coord.row()][coord.col()] = move.color;
   }
-  // TODO(piotrf): fix for slots approach
   // Update frontier and allowed based on current state of pieces_.
   for (int r = 0; r < kNumRows; ++r) {
     for (int c = 0; c < kNumCols; ++c) {

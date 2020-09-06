@@ -5,31 +5,10 @@
 #include <string>
 #include <vector>
 
+#include "game/defs.h"
 #include "game/tile.h"
 
 namespace blokus {
-
-// Note: these values are used as indexes, so they should not be changed.
-enum Color {
-  INVALID = 0,
-  BLUE    = 1,
-  YELLOW  = 2,
-  RED     = 3,
-  GREEN   = 4,
-};
-
-Color NextColor(Color c);
-std::string ColorToString(Color c);
-std::string AnsiColor(Color c);
-
-// Placement represents how to place a Tile on the board, although it does not
-// include the tile itself.
-struct Placement {
-  Coord coord;
-  int rotation = 0;  // 0..3
-  bool flip = false;
-  std::string DebugString() const;
-};
 
 // Move fully represents a single move in the game.
 struct Move {

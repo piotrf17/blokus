@@ -4,6 +4,7 @@ cc_binary(
     name = "blokus",
     srcs = ["blokus_main.cc"],
     deps = [
+        "//ai:mcts",
         "//ai:random",
         "//game:game_runner",
         "//util:http_server",

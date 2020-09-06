@@ -11,6 +11,7 @@
 #include "glog/logging.h"
 #include <jsoncpp/json/writer.h>
 
+#include "ai/mcts.h"
 #include "ai/random.h"
 #include "game/game_runner.h"
 #include "util/http_server.h"
@@ -54,10 +55,13 @@ class WebPlayer : public Player {
     // Parse the move out of the json.
     const Json::Value& data = request->json();
     move_.tile = data["tile"].asInt();
-    move_.placement.rotation = data["move"]["rotation"].asInt();
-    move_.placement.flip = data["move"]["flip"].asInt();
-    move_.placement.coord[0] = data["move"]["coord"][0].asInt();
-    move_.placement.coord[1] = data["move"]["coord"][1].asInt();
+    if (move_.tile != -1) {
+      move_.placement.rotation = data["move"]["rotation"].asInt();
+      move_.placement.flip = data["move"]["flip"].asInt();
+      move_.placement.coord[0] = data["move"]["coord"][0].asInt();
+      move_.placement.coord[1] = data["move"]["coord"][1].asInt();
+      move_.placement = kTiles[move_.tile].Canonicalize(move_.placement);
+    }
     // Indicate that we have a move ready.
     {
       std::unique_lock<std::mutex> lock(m_, std::defer_lock);
@@ -79,17 +83,21 @@ class WebPlayer : public Player {
 class MoveForwarder {
  public:
   void Handle(blokus::HttpServer::Request* request) {
+    int next_player;
     Move next_move;
     while (true) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       std::lock_guard<std::mutex> lock(m_);
       if (!moves_.empty()) {
+        next_player = players_.front();
+        players_.pop_front();
         next_move = moves_.front();
         moves_.pop_front();
         break;
       }
     }
     Json::Value data;
+    data["player"] = next_player;
     data["tile"] = next_move.tile;
     data["move"]["rotation"] = Json::Int(next_move.placement.rotation);
     data["move"]["flip"] = next_move.placement.flip;
@@ -100,12 +108,14 @@ class MoveForwarder {
     request->set_status(200);
   }
 
-  void NewMove(const Move& move) {
+  void NewMove(const Game& game, const Move& move) {
     std::lock_guard<std::mutex> lock(m_);
+    players_.emplace_back((game.current_player() + 3) % 4);
     moves_.emplace_back(move);
   }
   
  private:
+  std::list<int> players_;
   std::list<Move> moves_;
   std::mutex m_;
 };
@@ -132,12 +142,12 @@ int main(int argc, char **argv) {
   game.AddPlayer(absl::make_unique<blokus::WebPlayer>(0, &server));
   game.AddPlayer(absl::make_unique<blokus::RandomAI>(1));
   game.AddPlayer(absl::make_unique<blokus::RandomAI>(2));
-  game.AddPlayer(absl::make_unique<blokus::RandomAI>(3));  
+  game.AddPlayer(absl::make_unique<blokus::RandomAI>(3));
 
   blokus::MoveForwarder forwarder;
-  game.AddObserver([&forwarder](const blokus::Board& board,
+  game.AddObserver([&forwarder](const blokus::Game& game,
                                 const blokus::Move& move) {
-      forwarder.NewMove(move);
+      forwarder.NewMove(game, move);
     });
   game.AddObserver(blokus::BoardPrintingObserver());
   server.RegisterHandler(
@@ -146,7 +156,11 @@ int main(int argc, char **argv) {
         forwarder.Handle(request);
       });
   
-  game.Play();
+  blokus::GameResult result = game.Play();
+  LOG(INFO) << "winner is " << result.winner_id;
+  for (int i = 0; i < result.scores.size(); ++i) {
+    LOG(INFO) << "player " << i << " has score " << result.scores[i];
+  }
   
   return 0;
 }

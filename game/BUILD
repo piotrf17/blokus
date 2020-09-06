@@ -7,6 +7,7 @@ cc_library(
     srcs = ["board.cc"],
     hdrs = ["board.h"],
     deps = [
+        ":defs",
         ":tile",
   	"@com_google_absl//absl/container:flat_hash_set",
   	"@com_google_absl//absl/strings",
@@ -19,10 +20,20 @@ cc_test(
     name = "board_test",
     srcs = ["board_test.cc"],
     deps = [
-     	 ":board",
-   	 "@com_google_absl//absl/strings",
-   	 "@com_google_glog//:glog",
-	 "@com_google_googletest//:gtest_main",
+     	":board",
+   	"@com_google_absl//absl/strings",
+   	"@com_google_glog//:glog",
+	"@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "defs",
+    srcs = ["defs.cc"],
+    hdrs = ["defs.h"],
+    deps = [
+        "@com_google_glog//:glog",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -50,6 +61,7 @@ cc_library(
     srcs = ["tile.cc"],
     hdrs = ["tile.h"],
     deps = [
+        ":defs",
     	"@com_google_glog//:glog",
     ]
 )

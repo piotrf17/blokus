@@ -27,7 +27,7 @@ GameResult GameRunner::Play() {
         << ColorToString(game.current_color()) << " (player " << current_player
         << ") wants to play an invalid move: " << move.DebugString();
     for (auto& observer : observers_) {
-      observer(game.board(), move);
+      observer(game, move);
     }
   }
 
@@ -35,9 +35,9 @@ GameResult GameRunner::Play() {
 }
 
 ObserverFunc BoardPrintingObserver(bool include_debug) {
-  return [include_debug](const Board& board, const Move& move) {
+  return [include_debug](const Game& game, const Move& move) {
     printf("%s\n", move.DebugString().c_str());
-    board.Print(include_debug);
+    game.board().Print(include_debug);
   };
 }
 

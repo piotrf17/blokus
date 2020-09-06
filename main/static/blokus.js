@@ -15,37 +15,37 @@ const PLAYERS = [
 
 function buildTileMap() {
   // First compute the total size.
-  var width = 0;
-  var height = 0;
+  var numRows = 0;
+  var numCols = 0;
   for (var t = 0; t < tiles.TILES.length; ++t) {
-    width += tiles.TILES[t].width + 1;
+    numCols += tiles.TILES[t].numCols + 1;
     if (t == Math.floor(tiles.TILES.length / 2) + 1) {
-      height += 5;
+      numRows += 5;
     }
   }
-  height += 5;
+  numRows += 5;
   // Create an array to store the tile map.
-  var tileMap = new Array(width);
-  for (var i = 0; i < width; ++i) {
-    tileMap[i] = new Array(height);
+  var tileMap = new Array(numRows);
+  for (var r = 0; r < numRows; ++r) {
+    tileMap[r] = new Array(numCols);
   }
   // Now, fill in the tile map.
-  var xOff = 0, yOff = 0;
+  var rowOff = 0, colOff = 0;
   for (var t = 0; t < tiles.TILES.length; ++t) {
     var tile = tiles.TILES[t]
-    for (var i = 0; i < 5; ++i) {
-      for (var j = 0; j < 5; ++j) {
-	if (tile.data[i][j]) {
-	  tileMap[xOff + i][yOff + j] = t;
+    for (var r = 0; r < 5; ++r) {
+      for (var c = 0; c < 5; ++c) {
+	if (tile.data[r][c]) {
+	  tileMap[rowOff + r][colOff + c] = t;
 	} else {
-	  tileMap[xOff + i][yOff + j] = null;
+	  tileMap[rowOff + r][colOff + c] = null;
 	}
       }
     }
-    xOff += tile.width + 1;
+    colOff += tile.numCols + 1;
     if (t == Math.floor(tiles.TILES.length / 2) + 1) {
-      xOff = 0;
-      yOff += 5;
+      colOff = 0;
+      rowOff += 5;
     }
   }
   return tileMap;
@@ -73,14 +73,14 @@ class UI {
   }
 
   isBoard(x, y) {
-    return x < board.WIDTH * BOARD_SCALE && y < board.HEIGHT * BOARD_SCALE;
+    return x < board.NUM_COLS * BOARD_SCALE && y < board.NUM_ROWS * BOARD_SCALE;
   }
 
   getBoardCoor(x, y) {
     if ((x % BOARD_SCALE < 4 || x % BOARD_SCALE > (BOARD_SCALE - 4)) &&
         (y % BOARD_SCALE < 4 || y % BOARD_SCALE > (BOARD_SCALE - 4))) {
-      return [Math.floor((x + 4) / BOARD_SCALE),
-    	      Math.floor((y + 4) / BOARD_SCALE)];
+      return [Math.floor((y + 4) / BOARD_SCALE),
+    	      Math.floor((x + 4) / BOARD_SCALE)];
     }
     return null;
   }
@@ -90,11 +90,11 @@ class UI {
   }
 
   getTile(x, y) {
-    var tileX = Math.floor((x - 650) / TILE_SCALE);
+    var tileCol = Math.floor((x - 650) / TILE_SCALE);
     var player = Math.floor(y / (11 * TILE_SCALE));
-    var tileY = Math.floor(y / TILE_SCALE) - 11 * player;
-    if (tileY < 10) {
-      return this.tileMap[tileX][tileY];
+    var tileRow = Math.floor(y / TILE_SCALE) - 11 * player;
+    if (tileRow < 10) {
+      return this.tileMap[tileRow][tileCol];
     } else {
       return null;
     }
@@ -102,17 +102,17 @@ class UI {
 
   drawTiles(ctx, x, y, color, player) {
     ctx.fillStyle = color;
-    var x_off = x;
-    var y_off = y;
+    var xOff = x;
+    var yOff = y;
     // NOTE: must match tile map construction code in buildTileMap.
     for (var t = 0; t < tiles.TILES.length; ++t) {
       if (this.tileList[board.playerString(player)][t]) {
-	tiles.TILES[t].draw(ctx, x_off, y_off, 0, false, color, TILE_SCALE);
+	tiles.TILES[t].draw(ctx, xOff, yOff, 0, false, color, TILE_SCALE);
       }
-      x_off += TILE_SCALE * (tiles.TILES[t].width + 1);
+      xOff += TILE_SCALE * (tiles.TILES[t].numCols + 1);
       if (t == Math.floor(tiles.TILES.length / 2) + 1) {
-	x_off = x;
-	y_off += TILE_SCALE * 5;
+	xOff = x;
+	yOff += TILE_SCALE * 5;
       }
     }
   }
@@ -156,14 +156,17 @@ class Blokus {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     // Draw the board.
-    this.board.draw(this.ctx);
+    this.board.draw(this.ctx, BOARD_SCALE);
 
     // Draw tiles to be selected.
-    // TODO(piotrf): only draw available tiles.
-    this.ui.drawTiles(this.ctx, 650, 0, board.playerColor(board.BLUE), board.BLUE);
-    this.ui.drawTiles(this.ctx, 650, TILE_SCALE * 11, board.playerColor(board.YELLOW), board.YELLOW);
-    this.ui.drawTiles(this.ctx, 650, TILE_SCALE * 22, board.playerColor(board.RED), board.RED);
-    this.ui.drawTiles(this.ctx, 650, TILE_SCALE * 33, board.playerColor(board.GREEN), board.GREEN);
+    this.ui.drawTiles(this.ctx, 650, 0,
+		      board.playerColor(board.BLUE), board.BLUE);
+    this.ui.drawTiles(this.ctx, 650, TILE_SCALE * 11,
+		      board.playerColor(board.YELLOW), board.YELLOW);
+    this.ui.drawTiles(this.ctx, 650, TILE_SCALE * 22,
+		      board.playerColor(board.RED), board.RED);
+    this.ui.drawTiles(this.ctx, 650, TILE_SCALE * 33,
+		      board.playerColor(board.GREEN), board.GREEN);
 
     // Draw the piece the mouse is holding.
     if (this.holdingPiece != null) {
@@ -181,8 +184,8 @@ class Blokus {
 	  }
 	  tiles.TILES[this.holdingPiece].draw(
 	    this.ctx,
-	    this.pendingMove.coord[0] * BOARD_SCALE,
 	    this.pendingMove.coord[1] * BOARD_SCALE,
+	    this.pendingMove.coord[0] * BOARD_SCALE,
 	    this.pendingMove.rotation,
 	    this.pendingMove.flip,
 	    this.possibleMove ? "rgb(191,255,0)" : "rgb(255,105,180)",
@@ -251,8 +254,7 @@ class Blokus {
 	  }
 	  var curColor = PLAYERS[blokus.currentPlayer].color;
 	  $.ajax({
-	    /*	  url: '/game/' + board.playerString(curColor) + '/place',*/
-	    url: '/game/0/place',  // xxx
+	    url: '/game/' + blokus.currentPlayer + '/place',
 	    type: 'POST',
 	    dataType: 'json',
 	    contentType: 'application/json',
@@ -295,6 +297,32 @@ class Blokus {
 	  blokus.pendingMove.coord = null;
 	}
 	break;
+      case 112: // 'p'
+	// TODO(piotrf): implement a "pass" button, with proper support for only
+	// clicking it once.
+	console.log('sending a pass move');
+	var moveData = {
+	  tile: -1
+	}
+	$.ajax({
+	  url: '/game/' + blokus.currentPlayer + '/place',
+	  type: 'POST',
+	  dataType: 'json',
+	  contentType: 'application/json',
+	  data: JSON.stringify(moveData)})
+	  .fail(function() {
+	    alert('ajax request /game/place failed!');
+	  });
+	// Switch to the next player.
+	// TODO(piotrf): make this a function in the 'model'.
+	blokus.currentPlayer = (blokus.currentPlayer + 1) % 4;
+	blokus.lastHumanMove = blokus.pendingMove;
+	blokus.pendingMove = null;
+	blokus.holdingPiece = null;
+	if (PLAYERS[blokus.currentPlayer].type == 'computer') {
+	  blokus.waiting = true;
+	  blokus.getNextServerMove();
+	}
       }
       blokus.draw();
     }
@@ -304,27 +332,27 @@ class Blokus {
     var blokus = this;
     $.getJSON('/game/next_move', function(data) {
       // TODO(piotrf): hacky.
-      if (data.move.coord[0] == blokus.lastHumanMove.coord[0] &&
-	  data.move.coord[1] == blokus.lastHumanMove.coord[1]) {
+      if (data.player == 0) {
 	blokus.getNextServerMove();
       } else {
 	console.log('next machine move!');
 	console.log(data);
-	blokus.board.place(tiles.TILES[data.tile],
-			   PLAYERS[blokus.currentPlayer].color, data.move);
-	blokus.ui.useTile(data.tile, PLAYERS[blokus.currentPlayer].color);
+	if (data.tile != -1) {
+ 	  blokus.board.place(tiles.TILES[data.tile],
+	  		     PLAYERS[blokus.currentPlayer].color, data.move);
+	  blokus.ui.useTile(data.tile, PLAYERS[blokus.currentPlayer].color);
+	}
 	blokus.currentPlayer = (blokus.currentPlayer + 1) % 4;
-	blokus.draw();
+        blokus.draw();
 	if (PLAYERS[blokus.currentPlayer].type == 'computer') {
 	  blokus.getNextServerMove();
 	} else {
 	  blokus.waiting = false;
 	}
       }
-    })
-      .fail(function(data) {
-	alert('ajax request to /game/next_move failed!');
-      });
+    }).fail(function(data) {
+      alert('ajax request to /game/next_move failed!');
+    });
   }
 }
     

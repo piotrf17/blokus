@@ -302,6 +302,33 @@ Tile::Tile(int index, std::vector<std::vector<bool>> blocks)
   ComputeOrientations();
 }
 
+Placement Tile::Canonicalize(Placement placement) const {
+  std::vector<Coord> coords = Transform(placement.rotation, placement.flip);
+  // Normalize coordinates so that upper-left is 0,0.
+  int8_t min_x = 0;
+  int8_t min_y = 0;
+  for (const Coord& coord : coords) {
+    min_x = std::min(min_x, coord[0]);
+    min_y = std::min(min_y, coord[1]);
+  }
+  for (Coord& coord : coords) {
+    coord[0] -= min_x;
+    coord[1] -= min_y;
+  }
+  // Find the matching orientation.
+  for (int i = 0; i < orientations_.size(); ++i) {
+    if (CoordsMatch(coords, orientations_[i].coords())) {
+      placement.rotation = orientations_[i].rotation();
+      placement.flip = orientations_[i].flip();
+      placement.coord[0] += min_x + orientations_[i].offset()[0];
+      placement.coord[1] += min_y + orientations_[i].offset()[1];
+      return placement;
+    }
+  }
+  LOG(FATAL) << "On tile " << index_ << ", found no canonicalization for "
+             << placement.DebugString();
+}
+
 void Tile::ComputeTransformations() {
   for (int rotation = 0; rotation < 4; ++rotation) {
     for (bool flip : {true, false}) {

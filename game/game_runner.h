@@ -11,8 +11,8 @@
 namespace blokus {
 
 // Interface for observers. After every move, the observer will be called
-// with the latest move as well as the current board state.
-typedef std::function<void(const Board& board, const Move& move)> ObserverFunc;
+// with the latest move as well as the current game state.
+typedef std::function<void(const Game& game, const Move& move)> ObserverFunc;
 
 // Class for managing a game of Blokus.
 class GameRunner {

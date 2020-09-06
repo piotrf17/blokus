@@ -205,6 +205,8 @@ Move MctsAI::SelectMove(const Game& game) {
     }
   }
   CHECK(best_child != nullptr);
+  VLOG(0) << "player " << player_id() << " estimate of winning = "
+          << static_cast<double>((*best_child)->wins) / (*best_child)->visits;
   tree_ = std::move(*best_child);
   return tree_->move;
 }
