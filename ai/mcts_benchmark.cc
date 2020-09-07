@@ -22,6 +22,7 @@ namespace {
 // BM_Rollout    4154011 ns      4154033 ns          169  (Remove std::map)
 // BM_Rollout    2510316 ns      2510315 ns          276  (opt CornerFitsSlot)
 // BM_Rollout    2072928 ns      2071352 ns          334  (remove hashmap)
+// BM_Rollout     932193 ns       932172 ns          728  (possible tile cache)
 
 static void BM_Rollout(benchmark::State& state) {
   Game game(4);

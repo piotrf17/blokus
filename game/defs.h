@@ -60,6 +60,12 @@ struct Placement {
   bool flip = false;
   std::string DebugString() const;
 };
+
+inline bool operator==(const Placement& lhs, const Placement& rhs) {
+  return lhs.coord == rhs.coord &&
+      lhs.rotation == rhs.rotation &&
+      lhs.flip == rhs.flip;
+}
   
 }  // namespace blokus
 

@@ -58,14 +58,35 @@ class Board {
   // that it is occupied.
   std::vector<std::vector<uint32_t>> available_;
 
-  std::vector<std::vector<Slot>> slots_;
-};
+  // Information about a "slot" on the board.
+  // A slot represents a possible place that a piece corner could go, basically
+  // any spot next to a corner of an existing piece.
+  struct SlotInfo {
+    // The actual slot itself.
+    Slot slot;
+    // A cache of possible tiles on this slot.
+    // This is mutable so that it can be updated in the const PossibleMoves.
+    // TODO(piotrf): consider refactoring the API, this is a hack.
+    mutable uint32_t possible_tiles;
 
-inline bool operator==(const Placement& lhs, const Placement& rhs) {
-  return lhs.coord == rhs.coord &&
-      lhs.rotation == rhs.rotation &&
-      lhs.flip == rhs.flip;
-}
+    explicit SlotInfo(const Slot& a_slot)
+        : slot(a_slot), possible_tiles(0xffffffff) {}
+
+    bool IsAvailable(const Tile& tile) const {
+      return possible_tiles & (1 << tile.index());
+    }
+
+    void SetUnavailable(const Tile& tile) const {
+      possible_tiles &= ~(1 << tile.index());
+    }
+  };
+  std::vector<std::vector<SlotInfo>> slots_;
+
+  // A map from a position on the board, represented by a flat integer,
+  // to whether or not a slot exists at that position. Used to dedup multiple
+  // slots on the same position.
+  std::vector<std::vector<bool>> slot_map_;
+};
 
 inline bool operator==(const Move& lhs, const Move& rhs) {
   if (lhs.color != rhs.color) return false;

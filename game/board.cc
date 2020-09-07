@@ -34,12 +34,16 @@ const TileOrientation& OrientationForMove(const Move& move) {
   LOG(FATAL) << "No orientation found for move: " << move.DebugString();
 }
 
-int PlacementHash(const Placement& p) {
-  int rc = p.coord.row() * Board::kNumCols + p.coord.col();
-  return rc * 8 + p.rotation * 2 + p.flip;
+constexpr int RC(int row, int col) {
+  return Board::kNumCols * row + col;
 }
-constexpr int kMaxRc = (Board::kNumRows-1)*Board::kNumCols+Board::kNumCols-1;
-constexpr int kMaxPlacementHash = kMaxRc * 8 + 3 * 2 + 1;
+
+int PlacementHash(const Placement& p) {
+  return RC(p.coord.row(), p.coord.col()) * 8 + p.rotation * 2 + p.flip;
+}
+
+constexpr int kMaxPlacementHash =
+    RC(Board::kNumRows - 1, Board::kNumCols - 1) * 8 + 3 * 2 + 1;
 
 }  // namespace
 
@@ -70,10 +74,19 @@ Board::Board() {
   // Initially, you can only move in a corner. Place in turn order,
   // going clockwise from top-left (0,0).
   slots_.resize(5);
-  slots_[BLUE].push_back(Slot{Coord(0, 0), Slot::SE});
-  slots_[YELLOW].push_back(Slot{Coord(0, kNumCols - 1), Slot::SW});
-  slots_[RED].push_back(Slot{Coord(kNumRows - 1, kNumCols - 1), Slot::NW});
-  slots_[GREEN].push_back(Slot{Coord(kNumRows - 1, 0), Slot::NE});
+  slot_map_.resize(5);
+  slots_[BLUE].emplace_back(Slot{Coord(0, 0), Slot::SE});
+  slot_map_[BLUE] = std::vector<bool>(kNumRows * kNumCols, false);
+  slot_map_[BLUE][RC(0, 0)] = true;
+  slots_[YELLOW].emplace_back(Slot{Coord(0, kNumCols - 1), Slot::SW});
+  slot_map_[YELLOW] = std::vector<bool>(kNumRows * kNumCols, false);
+  slot_map_[YELLOW][RC(0, kNumCols -1)] = true;
+  slots_[RED].emplace_back(Slot{Coord(kNumRows - 1, kNumCols - 1), Slot::NW});
+  slot_map_[RED] = std::vector<bool>(kNumRows * kNumCols, false);
+  slot_map_[RED][RC(kNumRows - 1, kNumCols - 1)] = true;
+  slots_[GREEN].emplace_back(Slot{Coord(kNumRows - 1, 0), Slot::NE});
+  slot_map_[GREEN] = std::vector<bool>(kNumRows * kNumCols, false);
+  slot_map_[GREEN][RC(kNumRows - 1, 0)] = true;
 
   // Initially, everyone is allowed to move everywhere.
   available_.resize(5);
@@ -98,9 +111,9 @@ bool Board::IsPossible(const Move& move) const {
         - orientation.offset().row();
     const int c = move.placement.coord.col() + corner.c.col()
         - orientation.offset().col();
-    for (const Slot& slot : slots_[move.color]) {
-      if (slot.c.row() != r || slot.c.col() != c) continue;
-      return IsPossible(slot, orientation, corner, move.color);
+    for (const SlotInfo& slot_info : slots_[move.color]) {
+      if (slot_info.slot.c.row() != r || slot_info.slot.c.col() != c) continue;
+      return IsPossible(slot_info.slot, orientation, corner, move.color);
     }
   }
 
@@ -138,6 +151,7 @@ bool Board::IsPossible(const Slot& slot,
 // Returns a list of all possible moves for the given tile and color.
 std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
   std::vector<Move> moves;
+  moves.reserve(200);
 
   // Prevent duplicate moves that can occur when different corner/slot combos
   // result in the same exact placement.
@@ -148,10 +162,16 @@ std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
   move_template.tile = tile.index();
   move_template.color = color;
 
-  for (const Slot& slot : slots_[color]) {
+  for (const SlotInfo& slot_info : slots_[color]) {
+    if (!slot_info.IsAvailable(tile)) continue;
+    const Slot& slot = slot_info.slot;
+
+    bool is_possible = false;
     for (const TileOrientation& orientation : tile.orientations()) {
       for (const Corner& corner : orientation.corners()) {
         if (IsPossible(slot, orientation, corner, color)) {
+          is_possible = true;
+
           Move move = move_template;
           move.placement.coord =
               Coord(slot.c[0] + orientation.offset()[0] - corner.c[0],
@@ -166,6 +186,10 @@ std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
           }
         }
       }
+    }
+
+    if (!is_possible) {
+      slot_info.SetUnavailable(tile);
     }
   }
 
@@ -190,8 +214,11 @@ bool Board::MakeMove(const Move& move) {
         slot.c.col() < 0 || slot.c.col() >= kNumCols) {
       continue;
     }
-    // TODO(piotrf): dedup slots.
-    slots_[move.color].push_back(slot);
+    const int rc = RC(slot.c.row(), slot.c.col());
+    if (!slot_map_[move.color][rc]) {
+      slots_[move.color].emplace_back(slot);
+      slot_map_[move.color][rc] = true;
+    }
   }
 
   // Update available bitmap based on the move.

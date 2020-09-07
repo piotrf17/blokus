@@ -9,6 +9,30 @@ namespace {
 using ::testing::Eq;
 using ::testing::SizeIs;
 
+TEST(CornerFitsSlotTest, Default) {
+  bool expected_fit_map[10][9] = {
+  // I  N  W  E  S  SE NE NW SW
+    {0, 0, 0, 0, 0, 0, 0, 0, 0},  // INVALID
+    {0, 0, 0, 0, 1, 1, 0, 0, 1},  // NORTH
+    {0, 0, 0, 1, 0, 1, 1, 0, 0},  // WEST
+    {0, 0, 1, 0, 0, 0, 0, 1, 1},  // EAST
+    {0, 1, 0, 0, 0, 0, 1, 1, 0},  // SOUTH
+    {0, 0, 0, 0, 0, 0, 0, 1, 0},  // SE
+    {0, 0, 0, 0, 0, 0, 0, 0, 1},  // NE
+    {0, 0, 0, 0, 0, 1, 0, 0, 0},  // NW
+    {0, 0, 0, 0, 0, 0, 1, 0, 0},  // SW
+    {0, 1, 1, 1, 1, 1, 1, 1, 1},  // ALL
+  };
+  for (int corner = 1; corner <= 9; ++corner) {
+    for (int slot = 1; slot <= 8; ++slot) {
+      Corner c{{0, 0}, static_cast<Corner::Type>(corner)};
+      Slot s{{0, 0}, static_cast<Slot::Type>(slot)};
+      EXPECT_THAT(CornerFitsSlot(c, s), Eq(expected_fit_map[corner][slot]))
+          << "c: " << corner << " s: " << slot;
+    }
+  }
+}
+
 TEST(TileTest, 1x1) {
   Tile tile = kTiles[0];
   ASSERT_THAT(tile.orientations(), SizeIs(1));
@@ -30,7 +54,6 @@ TEST(TileTest, 1x1) {
   EXPECT_THAT(o.num_cols(), Eq(1));
   ASSERT_THAT(o.num_rows(), Eq(1));
   EXPECT_THAT(o.rows()[0], Eq(0b1));
-  ASSERT_THAT(o.expanded_rows(), SizeIs(3));
   EXPECT_THAT(o.expanded_rows()[0], Eq(0b010));
   EXPECT_THAT(o.expanded_rows()[1], Eq(0b111));
   EXPECT_THAT(o.expanded_rows()[2], Eq(0b010));
@@ -59,7 +82,6 @@ TEST(TileTest, 2x1) {
   EXPECT_THAT(o1.num_cols(), Eq(2));
   ASSERT_THAT(o1.num_rows(), Eq(1));
   EXPECT_THAT(o1.rows()[0], Eq(0b11));
-  ASSERT_THAT(o1.expanded_rows(), SizeIs(3));
   EXPECT_THAT(o1.expanded_rows()[0], Eq(0b0110));
   EXPECT_THAT(o1.expanded_rows()[1], Eq(0b1111));
   EXPECT_THAT(o1.expanded_rows()[2], Eq(0b0110));
@@ -84,7 +106,6 @@ TEST(TileTest, 2x1) {
   ASSERT_THAT(o2.num_rows(), Eq(2));
   EXPECT_THAT(o2.rows()[0], Eq(0b1));
   EXPECT_THAT(o2.rows()[1], Eq(0b1));
-  ASSERT_THAT(o2.expanded_rows(), SizeIs(4));
   EXPECT_THAT(o2.expanded_rows()[0], Eq(0b010));
   EXPECT_THAT(o2.expanded_rows()[1], Eq(0b111));
   EXPECT_THAT(o2.expanded_rows()[2], Eq(0b111));
@@ -122,7 +143,6 @@ TEST(TileTest, C) {
   EXPECT_THAT(o1.rows()[0], Eq(0b11));
   EXPECT_THAT(o1.rows()[1], Eq(0b01));
   EXPECT_THAT(o1.rows()[2], Eq(0b11));
-  ASSERT_THAT(o1.expanded_rows(), SizeIs(5));
   EXPECT_THAT(o1.expanded_rows()[0], Eq(0b0110));
   EXPECT_THAT(o1.expanded_rows()[1], Eq(0b1111));
   EXPECT_THAT(o1.expanded_rows()[2], Eq(0b0111));
