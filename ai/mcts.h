@@ -2,6 +2,7 @@
 #define BLOKUS_AI_MCTS_H
 
 #include <memory>
+#include <mutex>
 #include <set>
 #include <string>
 
@@ -26,6 +27,9 @@ struct MctsOptions {
 
   // The number of random rollouts to run per MCTS iteration.
   int num_rollouts_per_iteration = 1;
+
+  // The number of parallel threads that are running iterations.
+  int num_threads = 1;
 };
 
 struct Node;
@@ -43,8 +47,7 @@ class MctsAI : public Player {
 
   MctsOptions options_;
 
-  std::set<int> played_tiles_;
-
+  std::mutex tree_mutex_;
   std::unique_ptr<Node> tree_;
 };
   

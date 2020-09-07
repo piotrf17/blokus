@@ -1,7 +1,9 @@
 #include "ai/mcts.h"
 
+#include <atomic>
 #include <cmath>
 #include <limits>
+#include <thread>
 
 #include "absl/strings/str_format.h"
 #include <glog/logging.h>
@@ -13,7 +15,8 @@ namespace blokus {
 struct Node {
   std::string DebugString() const;
 
-  // The move that caused us to arrive at this node.
+  // The move that caused us to arrive at this node, i.e. the incoming edge
+  // to this node.
   Move move;
 
   // The player that played the above move.
@@ -31,11 +34,57 @@ struct Node {
 
 namespace {
 
-Node* SelectNode(Node* node, Game* game, double c) {
-  // If a leaf node, return.
-  if (node->children.empty()) return node;
+bool ShouldExpand(const Game& game, const Node& node) {
+  if (game.Finished()) return false;
+  CHECK(node.parent != nullptr);
+  CHECK(!node.parent->children.empty());
+  return node.parent->visits >= node.parent->children.size();
+}
 
-  // Otherwise pick the best child by UCB1 and recurse.
+void ExpandNode(const Game& game, Node* node) {
+  CHECK(node->children.empty()) << "Expanding a non-leaf node: "
+                                << node->DebugString();
+
+  // Look for possible moves, and if found, create a child for each move.
+  std::vector<Move> possible_moves = game.PossibleMoves();
+  node->children.reserve(possible_moves.size());
+  for (const Move& move : possible_moves) {
+    auto child_node = std::make_unique<Node>();
+    child_node->move = move;
+    child_node->player = game.current_player();
+    child_node->parent = node;
+    node->children.push_back(std::move(child_node));
+  }
+
+  // If there are no possible moves, create an empty move for this node.
+  if (node->children.empty()) {
+    auto child_node = std::make_unique<Node>();
+    child_node->move = Move::EmptyMove(game.current_color());
+    child_node->player = game.current_player();
+    child_node->parent = node;
+    node->children.push_back(std::move(child_node));
+  }
+}
+
+// Returns a pointer to a leaf-node in the game tree starting from `node`.
+// The `game` is modified to reflect the state as moves are made following
+// the nodes recursiverly down.
+//
+// A leaf node is defined as a node that has no children.
+//
+// Note that this function also includes the "expansion" phase in usual
+// MCTS terminology. A leaf node is only expanded if all siblings have been
+// visited at least once. After expansion, we return a child.
+Node* SelectNode(Node* node, Game* game, double c) {
+  // If a leaf node, possibly expand it and continue selection.
+  if (node->children.empty()) {
+    if (!ShouldExpand(*game, *node)) {
+      return node;
+    }
+    ExpandNode(*game, node);
+  }
+
+  // Pick the best child by UCB1 and recurse.
   std::vector<double> ucb1(
       node->children.size(), std::numeric_limits<double>::infinity());
   const double logN = std::log(node->visits);
@@ -64,30 +113,6 @@ Node* SelectNode(Node* node, Game* game, double c) {
   return SelectNode(node->children[selected_child].get(), game, c);
 }
 
-void ExpandNode(const Game& game, Node* node) {
-  CHECK(node->children.empty()) << "Expanding a non-leaf node: "
-                                << node->DebugString();
-
-  // Look for possible moves, and if found, create a child for each move.
-  std::vector<Move> possible_moves = game.PossibleMoves();
-  node->children.reserve(possible_moves.size());
-  for (const Move& move : possible_moves) {
-    auto child_node = std::make_unique<Node>();
-    child_node->move = move;
-    child_node->player = game.current_player();
-    child_node->parent = node;
-    node->children.push_back(std::move(child_node));
-  }
-
-  // If there are no possible moves, create an empty move for this node.
-  if (node->children.empty()) {
-    auto child_node = std::make_unique<Node>();
-    child_node->move = Move::EmptyMove(game.current_color());
-    child_node->player = game.current_player();
-    child_node->parent = node;
-    node->children.push_back(std::move(child_node));
-  }
-}
 
 }  // namespace
 
@@ -120,10 +145,12 @@ MctsAI::MctsAI(int player_id, const MctsOptions& options) :
 MctsAI::~MctsAI() {}
 
 void MctsAI::Iteration(Game game) {  
-  // Select and expand a node.
-  Node* node = SelectNode(tree_.get(), &game, options_.c);
-  if (game.Finished()) return;
-  ExpandNode(game, node);
+  // Select and possibly expand a node.
+  Node* node = nullptr;
+  {
+    std::lock_guard<std::mutex> lock(tree_mutex_);
+    node = SelectNode(tree_.get(), &game, options_.c);
+  }
 
   // Run rollouts on the selected node.
   for (int i = 0; i < options_.num_rollouts_per_iteration; ++i) {
@@ -132,6 +159,7 @@ void MctsAI::Iteration(Game game) {
     VLOG(3) << "   rollout winner is " << winner;
 
     // Bookkeeping on the winner.
+    std::lock_guard<std::mutex> lock(tree_mutex_);
     Node* update_node = node;
     CHECK(update_node->parent != nullptr);
     while (update_node != nullptr) {
@@ -186,11 +214,22 @@ Move MctsAI::SelectMove(const Game& game) {
   }
 
   // Run MCTS iterations.
-  for (int i = 0; i < options_.num_iterations; ++i) {
-    if (i % 100 == 0) {
-      VLOG(2) << "MCTS running iteration " << i;
+  {
+    // Launch all worker threads.
+    std::vector<std::thread> workers;
+    std::atomic<int> counter(0);
+    for (int i = 0; i < options_.num_threads; ++i) {
+      workers.emplace_back([&]() {
+        while(true) {
+          if (counter.fetch_add(1) >= options_.num_iterations) return;
+          Iteration(game);
+        }
+      });
     }
-    Iteration(game);
+    // Join worker threads.
+    for (std::thread& worker : workers) {
+      worker.join();
+    }
   }
 
   // Pick the best move.

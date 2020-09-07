@@ -64,7 +64,7 @@ class WebPlayer : public Player {
     }
     // Indicate that we have a move ready.
     {
-      std::unique_lock<std::mutex> lock(m_, std::defer_lock);
+      std::lock_guard<std::mutex> lock(m_);
       move_ready_ = true;
     }
     // TODO(piotrf): set status based on move result?
@@ -140,9 +140,19 @@ int main(int argc, char **argv) {
 
   blokus::GameRunner game(4);
   game.AddPlayer(absl::make_unique<blokus::WebPlayer>(0, &server));
-  game.AddPlayer(absl::make_unique<blokus::RandomAI>(1));
-  game.AddPlayer(absl::make_unique<blokus::RandomAI>(2));
-  game.AddPlayer(absl::make_unique<blokus::RandomAI>(3));
+
+  blokus::MctsOptions weak_options{
+    .num_iterations = 20000,
+    .num_threads = 8,
+  };
+  blokus::MctsOptions strong_options{
+    .num_iterations = 200000,
+    .num_threads = 8,
+  };
+  game.AddPlayer(absl::make_unique<blokus::MctsAI>(1, weak_options));
+  game.AddPlayer(absl::make_unique<blokus::MctsAI>(2, strong_options));
+  game.AddPlayer(absl::make_unique<blokus::MctsAI>(3, weak_options));
+  
 
   blokus::MoveForwarder forwarder;
   game.AddObserver([&forwarder](const blokus::Game& game,

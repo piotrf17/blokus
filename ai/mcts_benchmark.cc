@@ -25,12 +25,26 @@ namespace {
 // BM_Rollout     932193 ns       932172 ns          728  (possible tile cache)
 
 static void BM_Rollout(benchmark::State& state) {
-  Game game(4);
   for (auto _ : state) {
+    Game game(4);
     Rollout(game);
   }
 }
 BENCHMARK(BM_Rollout);
+
+static void BM_SelectMove(benchmark::State& state) {
+  for (auto _ : state) {
+    Game game(4);
+    MctsOptions options{
+      .num_iterations = state.range(0),
+      .num_threads = 8,
+    };
+    MctsAI ai(0, options);
+    ai.SelectMove(game);
+    state.SetItemsProcessed(state.range(0));
+  }      
+}
+BENCHMARK(BM_SelectMove)->Arg(10000);
 
 }  // namespace
 }  // namespace blokus
