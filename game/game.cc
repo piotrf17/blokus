@@ -2,7 +2,7 @@
 
 #include <set>
 
-#include <glog/logging.h>
+#include "absl/log/check.h"
 
 namespace blokus {
 
@@ -22,19 +22,22 @@ bool Game::MakeMove(const Move& move) {
   } else {
     // Once you pass, you can't keep playing.
     if (players_with_moves_.count(move.color) == 0) {
-      VLOG(1) << ColorToString(move.color) << " already passed";
+      // TODO(piotrf): re-enable vlog once absl supports it
+      //  VLOG(1) << ColorToString(move.color) << " already passed";
       return false;
     }
     
     // Ensure that this tile is still available.
     if (!player_tiles_[current_color_][move.tile]) {
-      VLOG(1) << ColorToString(move.color) << " played an already played tile";
+      // TODO(piotrf): re-enable vlog once absl supports it
+      //  VLOG(1) << ColorToString(move.color) << " played an already played tile";
       return false;
     }
     
     // Try making the move.
     if (!board_.MakeMove(move)) {
-      VLOG(1) << ColorToString(move.color) << " doesn't fit the board";
+      // TODO(piotrf): re-enable vlog once absl supports it
+      //  VLOG(1) << ColorToString(move.color) << " doesn't fit the board";
       return false;
     }
 

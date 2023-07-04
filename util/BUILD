@@ -8,6 +8,7 @@ cc_library(
     hdrs = ["http_server.h"],
     deps = [
         "@com_google_absl//absl/strings",
-        "@com_google_glog//:glog",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
     ],
 )

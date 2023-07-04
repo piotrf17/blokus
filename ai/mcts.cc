@@ -5,8 +5,8 @@
 #include <limits>
 #include <thread>
 
+#include "absl/log/check.h"
 #include "absl/strings/str_format.h"
-#include <glog/logging.h>
 
 namespace blokus {
 
@@ -154,9 +154,11 @@ void MctsAI::Iteration(Game game) {
 
   // Run rollouts on the selected node.
   for (int i = 0; i < options_.num_rollouts_per_iteration; ++i) {
-    VLOG(3) << "  MCTS running rollout " << i;
+    // TODO(piotrf): re-enable vlog once absl supports it
+    //  VLOG(3) << "  MCTS running rollout " << i;
     int winner = Rollout(game);
-    VLOG(3) << "   rollout winner is " << winner;
+    // TODO(piotrf): re-enable vlog once absl supports it
+    //  VLOG(3) << "   rollout winner is " << winner;
 
     // Bookkeeping on the winner.
     std::lock_guard<std::mutex> lock(tree_mutex_);
@@ -177,18 +179,22 @@ Move MctsAI::SelectMove(const Game& game) {
   for (size_t i = game.moves().size() - game.num_players() + 1;
        i < game.moves().size(); ++i) {
     if (i < 0) continue;
-    VLOG(1) << "MCTS updating tree for move " << game.moves()[i].DebugString();
-    VLOG(1) << " current tree_: " << tree_->DebugString();
+    // TODO(piotrf): re-enable vlog once absl supports it
+    //  VLOG(1) << "MCTS updating tree for move " << game.moves()[i].DebugString();
+    //  VLOG(1) << " current tree_: " << tree_->DebugString();
     if (tree_->children.empty()) {
-      VLOG(1) << "MCTS tree ran out while updating nodes";
+      // TODO(piotrf): re-enable vlog once absl supports it
+      //  VLOG(1) << "MCTS tree ran out while updating nodes";
       tree_ = std::make_unique<Node>();
       break;
     }
     bool found_match = false;
     for (std::unique_ptr<Node>& child : tree_->children) {
-      VLOG(2) << "  child: " << child->DebugString();
+      // TODO(piotrf): re-enable vlog once absl supports it
+      //  VLOG(2) << "  child: " << child->DebugString();
       if (child->move == game.moves()[i]) {
-        VLOG(2) << "    Match found, stopping.";
+        // TODO(piotrf): re-enable vlog once absl supports it
+        //  VLOG(2) << "    Match found, stopping.";
         found_match = true;
         tree_ = std::move(child);
         tree_->parent = nullptr;
@@ -233,19 +239,22 @@ Move MctsAI::SelectMove(const Game& game) {
   }
 
   // Pick the best move.
-  VLOG(1) << "MCTS picking from " << tree_->children.size() << " moves.";
+  // TODO(piotrf): re-enable vlog once absl supports it
+  //  VLOG(1) << "MCTS picking from " << tree_->children.size() << " moves.";
   int max_visits = 0;
   std::unique_ptr<Node>* best_child = nullptr;
   for (std::unique_ptr<Node>& child : tree_->children) {
-    VLOG(2) << child->DebugString();
+    // TODO(piotrf): re-enable vlog once absl supports it
+    //  VLOG(2) << child->DebugString();
     if (child->visits > max_visits) {
       max_visits = child->visits;
       best_child = &child;
     }
   }
   CHECK(best_child != nullptr);
-  VLOG(0) << "player " << player_id() << " estimate of winning = "
-          << static_cast<double>((*best_child)->wins) / (*best_child)->visits;
+  // TODO(piotrf): re-enable vlog once absl supports it
+  //  VLOG(0) << "player " << player_id() << " estimate of winning = "
+  //          << static_cast<double>((*best_child)->wins) / (*best_child)->visits;
   tree_ = std::move(*best_child);
   return tree_->move;
 }

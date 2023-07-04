@@ -1,7 +1,8 @@
 #include "game/game_runner.h"
 
-#include <glog/logging.h>
 #include <set>
+
+#include "absl/log/check.h"
 
 #include "game/game.h"
 
@@ -22,7 +23,8 @@ GameResult GameRunner::Play() {
   while (!game.Finished()) {
     int current_player = game.current_player();
     Move move = players_[current_player]->SelectMove(game);
-    VLOG(1) << move.DebugString();
+    // TODO(piotrf): re-enable once absl supports vlog
+    //  VLOG(1) << move.DebugString();
     CHECK(game.MakeMove(move))
         << ColorToString(game.current_color()) << " (player " << current_player
         << ") wants to play an invalid move: " << move.DebugString();

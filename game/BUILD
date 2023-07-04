@@ -9,9 +9,9 @@ cc_library(
     deps = [
         ":defs",
         ":tile",
-  	"@com_google_absl//absl/strings",
-	"@com_google_absl//absl/strings:str_format",
-	"@com_google_glog//:glog",
+        "@com_google_absl//absl/log",
+  	    "@com_google_absl//absl/strings",
+	    "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -20,9 +20,8 @@ cc_test(
     srcs = ["board_test.cc"],
     deps = [
      	":board",
-   	"@com_google_absl//absl/strings",
-   	"@com_google_glog//:glog",
-	"@com_google_googletest//:gtest_main",
+       	"@com_google_absl//absl/strings",
+	    "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -31,7 +30,7 @@ cc_library(
     srcs = ["defs.cc"],
     hdrs = ["defs.h"],
     deps = [
-        "@com_google_glog//:glog",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/strings:str_format",
     ],
 )
@@ -42,6 +41,7 @@ cc_library(
     hdrs = ["game.h"],
     deps = [
         ":board",
+        "@com_google_absl//absl/log:check",
     ],
 )
 
@@ -51,7 +51,8 @@ cc_library(
     hdrs = ["game_runner.h"],
     deps = [
         ":game",
-	":player",
+	    ":player",
+        "@com_google_absl//absl/log:check",
     ],
 )
 
@@ -61,8 +62,9 @@ cc_library(
     hdrs = ["tile.h"],
     deps = [
         ":defs",
-  	"@com_google_absl//absl/types:span",
-    	"@com_google_glog//:glog",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/log:check",
+      	"@com_google_absl//absl/types:span",
     ]
 )
 
@@ -71,8 +73,7 @@ cc_test(
     srcs = ["tile_test.cc"],
     deps = [
         ":tile",
-	"@com_google_glog//:glog",
-	"@com_google_googletest//:gtest_main",
+	    "@com_google_googletest//:gtest_main",
     ],
 )
 

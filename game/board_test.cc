@@ -1,8 +1,8 @@
 #include "game/board.h"
 
-#include <glog/logging.h>
 #include <random>
 
+#include "absl/log/log.h"
 #include "absl/strings/str_cat.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -85,17 +85,20 @@ bool VerificationBoard::IsPossible(const Move& move) const {
 
     // Verify that the piece is on the board.
     if (r < 0 || r > kNumRows - 1) {
-      VLOG(1) << " rows go off board!";
+      // TODO(piotrf): re-enable once absl has vlog
+      //  VLOG(1) << " rows go off board!";
       return false;
     }
     if (c < 0 || c > kNumCols - 1) {
-      VLOG(1) << " cols go off board!";
+      // TODO(piotrf): re-enable once absl has vlog
+      //  VLOG(1) << " cols go off board!";
       return false;
     }
 
     // Verify that we are allowed to move here.
     if ((allowed_[r][c] & ColorToByte(move.color)) == 0) {
-      VLOG(1) << coord << " is not allowed!";
+      // TODO(piotrf): re-enable once absl has vlog
+      //  VLOG(1) << coord << " is not allowed!";
       return false;
     }
 
@@ -105,7 +108,8 @@ bool VerificationBoard::IsPossible(const Move& move) const {
   }
 
   if (!contains_frontier) {
-    VLOG(1) << "doesn't contain frontier!";
+    // TODO(piotrf): re-enable once absl has vlog
+    //  VLOG(1) << "doesn't contain frontier!";
   }
   
   return contains_frontier;

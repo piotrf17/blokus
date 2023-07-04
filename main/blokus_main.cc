@@ -5,10 +5,12 @@
 #include <set>
 #include <thread>
 
+#include "absl/flags/parse.h"
+#include "absl/log/check.h"
+#include "absl/log/initialize.h"
+#include "absl/log/log.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
-#include "gflags/gflags.h"
-#include "glog/logging.h"
 #include <jsoncpp/json/writer.h>
 
 #include "ai/mcts.h"
@@ -124,8 +126,8 @@ class MoveForwarder {
 
 int main(int argc, char **argv) {
   // Initialize command line flags and logging.
-  google::ParseCommandLineFlags(&argc, &argv, true);
-  google::InitGoogleLogging(argv[0]);  
+  absl::ParseCommandLine(argc, argv);
+  absl::InitializeLog();
 
   blokus::HttpServer server;
   server.RegisterStaticHandler("/", "main/static/index.html");

@@ -1,7 +1,6 @@
 #include "game/defs.h"
 
-#include <glog/logging.h>
-
+#include "absl/log/log.h"
 #include "absl/strings/str_format.h"
 
 namespace blokus {

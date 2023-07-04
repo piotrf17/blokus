@@ -8,7 +8,8 @@ cc_library(
     hdrs = ["mcts.h"],
     deps = [
         "//game:player",
-	"@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/log:check",
+	    "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -17,9 +18,7 @@ cc_binary(
    srcs = ["mcts_benchmark.cc"],
    deps = [
        ":mcts",
-	"@com_google_benchmark//:benchmark",
-	"@com_google_glog//:glog",
-        "@com_github_gflags_gflags//:gflags",
+	    "@com_google_benchmark//:benchmark",
    ],
    linkopts = ["-lprofiler"],
 )

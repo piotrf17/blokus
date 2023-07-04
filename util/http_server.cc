@@ -1,8 +1,9 @@
 #include "util/http_server.h"
 
+#include "absl/log/check.h"
+#include "absl/log/log.h"
 #include "absl/strings/match.h"
 #include <fcntl.h>
-#include <glog/logging.h>
 #include <jsoncpp/json/reader.h>
 #include <jsoncpp/json/value.h>
 #include <sys/stat.h>
@@ -105,7 +106,8 @@ MHD_Result HttpServer::HandleRequest(
     size_t* upload_data_size, void** con_cls __attribute__ ((unused))) {
   HttpServer* server = static_cast<HttpServer*>(cls);
 
-  VLOG(1) << method << " " << url;
+  // TODO(piotrf): uncomment once absl supports vlog
+  //  VLOG(1) << method << " " << url;
 
   // TODO(piotrf): url params parsing.
   if (server->handlers_.count(url) == 0) {
@@ -164,8 +166,9 @@ MHD_Result HttpServer::HandleRequest(
       if (fd == -1) {
         // TODO(piotrf): not really 404, more like 500. Need a generic error
         // handler.
-        VLOG(1) << "No file found for static path: "
-                << info.static_path.c_str();
+        // TODO(piotrf): uncomment once absl supports VLOG
+        //  VLOG(1) << "No file found for static path: "
+        //        << info.static_path.c_str();
         return server->Return404(connection);
       }
       // Set the mimetype based on the file suffix.
