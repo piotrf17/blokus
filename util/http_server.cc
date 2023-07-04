@@ -46,11 +46,11 @@ void HttpServer::Shutdown() {
   }
 }
 
-int HttpServer::Return404(MHD_Connection* connection) {
+MHD_Result HttpServer::Return404(MHD_Connection* connection) {
   const char* data = "<html>Nothing found!<html>";
   MHD_Response* response = MHD_create_response_from_buffer(
       strlen(data), const_cast<char*>(data), MHD_RESPMEM_PERSISTENT);
-  int ret = MHD_queue_response(connection, 404, response);
+  MHD_Result ret = MHD_queue_response(connection, 404, response);
   MHD_destroy_response(response);
   return ret;
 }
@@ -99,7 +99,7 @@ class PostProcessor {
 
 // TODO(piotrf): make this a shim, like IteratePost above.
 /* static */
-int HttpServer::HandleRequest(
+MHD_Result HttpServer::HandleRequest(
     void* cls, MHD_Connection* connection, const char* url,
     const char* method, const char* version, const char* upload_data,
     size_t* upload_data_size, void** con_cls __attribute__ ((unused))) {
@@ -179,7 +179,7 @@ int HttpServer::HandleRequest(
     }
   }
   MHD_add_response_header(response, "Content-Type", mimetype.c_str());
-  int ret = MHD_queue_response(connection, status, response);
+  MHD_Result ret = MHD_queue_response(connection, status, response);
   MHD_destroy_response(response);
   return ret;
 }

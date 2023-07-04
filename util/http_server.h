@@ -62,9 +62,9 @@ class HttpServer {
   bool Start();
 
  private:
-  int Return404(MHD_Connection* connection);
+  MHD_Result Return404(MHD_Connection* connection);
   
-  static int HandleRequest(
+  static MHD_Result HandleRequest(
     void* cls, MHD_Connection* connection, const char* url,
     const char* method, const char* version, const char* upload_data,
     size_t* upload_data_size, void** con_cls);
