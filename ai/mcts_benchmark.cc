@@ -4,7 +4,7 @@
 // To profile a benchmark:
 //   $ bazel build -c opt ai:mcts_benchmark
 //   $ env CPUPROFILE=/tmp/mcts_benchmark.prof bazel-bin/ai/mcts_benchmark
-//   $ google-pprof bazel-bin/ai/mcts_benchmark /tmp/mcts_benchmark.prof
+//   $ pprof -http=":8000" bazel-bin/ai/mcts_benchmark /tmp/mcts_benchmark.prof
 #include "ai/mcts.h"
 
 #include "benchmark/benchmark.h"
