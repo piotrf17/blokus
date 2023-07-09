@@ -26,6 +26,7 @@ cc_binary(
         "//ai:mcts",
         "//ai:random",
         "//game:game_runner",
+        "//game:logger",
 	    "@com_google_absl//absl/flags:flag",
 	    "@com_google_absl//absl/flags:parse",        
         "@com_google_absl//absl/log",

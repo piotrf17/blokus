@@ -2,6 +2,8 @@
 
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
 cc_library(
     name = "board",
     srcs = ["board.cc"],
@@ -36,6 +38,17 @@ cc_library(
 )
 
 cc_library(
+    name = "logger",
+    srcs = ["logger.cc"],
+    hdrs = ["logger.h"],
+    deps = [
+         ":game_log_cc_proto",
+    	 ":game_runner",
+         "@com_google_absl//absl/log:check",
+    ],
+)
+
+cc_library(
     name = "game",
     srcs = ["game.cc"],
     hdrs = ["game.h"],
@@ -43,6 +56,16 @@ cc_library(
         ":board",
         "@com_google_absl//absl/log:check",
     ],
+)
+
+proto_library(
+    name = "game_log_proto",
+    srcs = ["game_log.proto"],
+)
+
+cc_proto_library(
+    name = "game_log_cc_proto",
+    deps = [":game_log_proto"],
 )
 
 cc_library(

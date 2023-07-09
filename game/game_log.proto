@@ -1,0 +1,36 @@
+syntax = "proto2";
+
+message GameLog {
+    // TODO(piotrf): replace defs.h color with proto color.
+    enum Color {
+        INVALID = 0;
+        BLUE    = 1;
+        YELLOW  = 2;
+        RED     = 3;
+        GREEN   = 4;
+    }
+
+    message Placement {
+        optional int32 row = 1;
+        optional int32 col = 2;
+        optional int32 rotation = 3;
+        optional bool flip = 4;        
+    }    
+
+    // See board.h for exact semantics.
+    message Move {
+        optional Color color = 1;
+        optional int32 tile = 2;
+        optional Placement placement = 3;
+    }
+
+    // The sequence of all moves made in the game.
+    repeated Move moves = 1;
+
+    // TODO(piotrf): add metadata about players?
+    // TODO(piotrf): add final score summary?
+}
+
+message GamesLog {
+    repeated GameLog games = 1;
+}
