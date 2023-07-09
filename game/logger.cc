@@ -21,7 +21,7 @@ GameLog::Move ToProto(const Move& move) {
 GameLogger::GameLogger(std::string_view output_path) {
   // Open the file in the constructor so that we can fail fast if there is an
   // issue with opening it.
-  outfile_.open(output_path.data(), std::ios::binary);
+  outfile_.open(output_path.data(), std::ios::trunc | std::ios::binary);
   CHECK(outfile_.is_open());
 }
 
