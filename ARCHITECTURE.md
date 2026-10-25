@@ -216,12 +216,13 @@ safe. That's fine for a one-human local game.
 
 ## Build and dependencies
 
-- Bazel with a legacy `WORKSPACE` (no `MODULE.bazel`). `http_archive`s: Abseil
-  (pinned commit), GoogleTest 1.13, Google Benchmark 1.8.1, Protobuf 21.7,
-  rules_proto 5.3.0-21.7, bazel_skylib 1.2.1.
-- `.bazelrc` sets `-std=c++17`, but the code uses designated initializers
-  (`MctsOptions{.num_iterations = ...}`), which are C++20 and only work in
-  C++17 as a GCC extension.
+- Bazel 9 (pinned in `.bazelversion`, run through bazelisk) with bzlmod.
+  `MODULE.bazel` lists abseil-cpp, googletest, google_benchmark, protobuf,
+  and rules_cc from the Bazel Central Registry. Resolved versions are locked
+  in `MODULE.bazel.lock`.
+- C++20 (`.bazelrc`, for both target and host builds).
+- `.bazelrc` also turns off `supports_start_end_lib`, because GNU ld 2.47
+  segfaults on the `--start-lib/--end-lib` flags Bazel would otherwise pass.
 - System libraries linked with `linkopts`: libmicrohttpd and jsoncpp (for
   `main:blokus`), and gperftools `-lprofiler` (for `ai:mcts_benchmark` and
   `main:train`).
@@ -231,12 +232,12 @@ safe. That's fine for a one-human local game.
 
 ## Known issues and sharp edges
 
-From reading the code. None of these have been checked against a build yet.
+From reading the code. Unless a note says otherwise, these haven't been
+reproduced. Note that `MatchesVerificationBoard` passes, so none of the
+`Board` issues show up in the first 10 rounds of its random game.
 
-- `notes.org` says unit tests are failing. A likely cause: the sort
-  comparator in `BoardTest.MatchesVerificationBoard` doesn't return on every
-  path and isn't a strict weak ordering (it returns true when `a == b`), which
-  is undefined behavior in `std::sort`.
+- The build has many `-Wsign-compare` warnings (`int` loop indexes compared
+  against `.size()`).
 - `Board::PossibleMoves` sizes `placement_hashes` as `kMaxPlacementHash`, but
   the largest hash *equals* `kMaxPlacementHash`, so the array looks one
   element too short.

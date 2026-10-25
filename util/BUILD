@@ -1,5 +1,7 @@
 # Various utilities.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -7,8 +9,8 @@ cc_library(
     srcs = ["http_server.cc"],
     hdrs = ["http_server.h"],
     deps = [
-        "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/log:check",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:check",
     ],
 )

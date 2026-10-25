@@ -4,9 +4,10 @@ Experiments with creating an AI for the game Blokus.
 
 ## Building
 
-This project is built with bazel. Most dependencies are specified as
-http_archive dependencies in the WORKSPACE file, but there are a few
-external dependencies. These can be installed (on Debian/Ubuntu) via:
+This project is built with [bazelisk](https://github.com/bazelbuild/bazelisk)
+(installed as `bazel`), which downloads the Bazel version pinned in
+`.bazelversion`. Most dependencies are Bazel modules listed in `MODULE.bazel`,
+but a few are system libraries. These can be installed (on Debian/Ubuntu) via:
 
 ```bash
 $ sudo apt-get install libjsoncpp-dev libmicrohttpd-dev libgoogle-perftools-dev
@@ -18,7 +19,14 @@ Afterwards, to try playing the AI, use:
 
 ```bash
 $ bazel build -c opt main:blokus
-$ bazel-bin/main/blokus --alsologtostderr
+$ bazel-bin/main/blokus --stderrthreshold=0
 ```
 
-and follow the provided link to the server.
+and open http://localhost:7777 in a browser. Run the binary from the repo
+root, because it serves the web client files by relative path.
+
+To run the tests:
+
+```bash
+$ bazel test //...
+```

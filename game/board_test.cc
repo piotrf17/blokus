@@ -1,5 +1,7 @@
 #include "game/board.h"
 
+#include <algorithm>
+#include <map>
 #include <random>
 
 #include "absl/log/log.h"
@@ -439,7 +441,7 @@ TEST(BoardTest, MatchesVerificationBoard) {
         if (a.placement.rotation < b.placement.rotation) return true;
         if (a.placement.rotation > b.placement.rotation) return false;
 
-        if (!a.placement.flip) return true;
+        return a.placement.flip < b.placement.flip;
       };
 
   // Everyone starts with all tiles.

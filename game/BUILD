@@ -1,8 +1,11 @@
 # Game logic and data structures.
 
-package(default_visibility = ["//visibility:public"])
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
-load("@rules_proto//proto:defs.bzl", "proto_library")
+package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "board",
@@ -11,9 +14,9 @@ cc_library(
     deps = [
         ":defs",
         ":tile",
-        "@com_google_absl//absl/log",
-  	    "@com_google_absl//absl/strings",
-	    "@com_google_absl//absl/strings:str_format",
+        "@abseil-cpp//absl/log",
+          "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -21,9 +24,9 @@ cc_test(
     name = "board_test",
     srcs = ["board_test.cc"],
     deps = [
-     	":board",
-       	"@com_google_absl//absl/strings",
-	    "@com_google_googletest//:gtest_main",
+         ":board",
+           "@abseil-cpp//absl/strings",
+        "@googletest//:gtest_main",
     ],
 )
 
@@ -32,8 +35,8 @@ cc_library(
     srcs = ["defs.cc"],
     hdrs = ["defs.h"],
     deps = [
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/strings:str_format",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -43,8 +46,8 @@ cc_library(
     hdrs = ["logger.h"],
     deps = [
          ":game_log_cc_proto",
-    	 ":game_runner",
-         "@com_google_absl//absl/log:check",
+         ":game_runner",
+         "@abseil-cpp//absl/log:check",
     ],
 )
 
@@ -54,7 +57,7 @@ cc_library(
     hdrs = ["game.h"],
     deps = [
         ":board",
-        "@com_google_absl//absl/log:check",
+        "@abseil-cpp//absl/log:check",
     ],
 )
 
@@ -74,8 +77,8 @@ cc_library(
     hdrs = ["game_runner.h"],
     deps = [
         ":game",
-	    ":player",
-        "@com_google_absl//absl/log:check",
+        ":player",
+        "@abseil-cpp//absl/log:check",
     ],
 )
 
@@ -85,9 +88,9 @@ cc_library(
     hdrs = ["tile.h"],
     deps = [
         ":defs",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/log:check",
-      	"@com_google_absl//absl/types:span",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:check",
+          "@abseil-cpp//absl/types:span",
     ]
 )
 
@@ -96,7 +99,7 @@ cc_test(
     srcs = ["tile_test.cc"],
     deps = [
         ":tile",
-	    "@com_google_googletest//:gtest_main",
+        "@googletest//:gtest_main",
     ],
 )
 

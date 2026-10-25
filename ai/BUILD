@@ -1,5 +1,8 @@
 # AI players.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -8,8 +11,8 @@ cc_library(
     hdrs = ["mcts.h"],
     deps = [
         "//game:player",
-        "@com_google_absl//absl/log:check",
-	    "@com_google_absl//absl/strings:str_format",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/strings:str_format",
     ],
 )
 
@@ -18,7 +21,7 @@ cc_binary(
    srcs = ["mcts_benchmark.cc"],
    deps = [
        ":mcts",
-	    "@com_google_benchmark//:benchmark",
+        "@google_benchmark//:benchmark",
    ],
    linkopts = ["-lprofiler"],
 )

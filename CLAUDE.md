@@ -12,13 +12,27 @@ bazel test //...                          # all tests
 bazel test //game:board_test --test_output=errors
 bazel run -c opt //ai:mcts_benchmark      # perf: always use -c opt
 bazel build -c opt //main:blokus && bazel-bin/main/blokus   # run from repo root; serves on :7777
-bazel run -c opt //main:train -- --num_games=10 --num_players=2
+bazel run -c opt //main:train -- --num_games=10 --num_players=2 --stderrthreshold=0
 ```
 
+- Bazel comes from bazelisk, and the version is pinned in `.bazelversion`.
+  Dependencies are Bazel modules in `MODULE.bazel` (bzlmod; there is no
+  `WORKSPACE`). Commit `MODULE.bazel.lock` together with any dependency
+  change.
+- Load C++ rules explicitly (`load("@rules_cc//cc:cc_library.bzl", ...)`),
+  since Bazel 9 removed the native ones. Proto rules come from
+  `@protobuf//bazel:*.bzl`.
+- Logging uses Abseil, which only prints WARNING and above to stderr by
+  default. Pass `--stderrthreshold=0` to see INFO logs. glog's
+  `--alsologtostderr` flag doesn't exist here.
+- `.bazelrc` turns off the `supports_start_end_lib` toolchain feature because
+  GNU ld 2.47 segfaults on `--start-lib`. Leave that line in.
 - System libraries (installed machine-wide, not through Bazel):
   `libmicrohttpd-dev`, `libjsoncpp-dev`, `libgoogle-perftools-dev`.
 - The dev environment is a VM. If a tool or library is missing, **ask the
   user to install it** instead of installing it yourself.
+- Benchmark numbers vary with machine load. Don't run the benchmark while a
+  build is going, and compare results only against runs on the same machine.
 
 ## Code style
 
