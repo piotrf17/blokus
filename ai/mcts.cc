@@ -1,5 +1,6 @@
 #include "ai/mcts.h"
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <limits>
@@ -175,33 +176,30 @@ void MctsAI::Iteration(Game game) {
 }
 
 Move MctsAI::SelectMove(const Game& game) {
-  // Unless this is our first move, update tree based on last moves.
-  for (size_t i = game.moves().size() - game.num_players() + 1;
-       i < game.moves().size(); ++i) {
-    if (i < 0) continue;
+  // Unless this is our first move, follow the other players' moves made since
+  // our last move down the tree. If any of them aren't in the tree (it was
+  // never expanded that far, or a color passed early), start a new tree.
+  const int num_moves = game.moves().size();
+  for (int i = std::max(0, num_moves - game.num_players() + 1); i < num_moves;
+       ++i) {
     // TODO(piotrf): re-enable vlog once absl supports it
     //  VLOG(1) << "MCTS updating tree for move " << game.moves()[i].DebugString();
     //  VLOG(1) << " current tree_: " << tree_->DebugString();
-    if (tree_->children.empty()) {
-      // TODO(piotrf): re-enable vlog once absl supports it
-      //  VLOG(1) << "MCTS tree ran out while updating nodes";
-      tree_ = std::make_unique<Node>();
-      break;
-    }
-    bool found_match = false;
+    std::unique_ptr<Node>* match = nullptr;
     for (std::unique_ptr<Node>& child : tree_->children) {
-      // TODO(piotrf): re-enable vlog once absl supports it
-      //  VLOG(2) << "  child: " << child->DebugString();
       if (child->move == game.moves()[i]) {
-        // TODO(piotrf): re-enable vlog once absl supports it
-        //  VLOG(2) << "    Match found, stopping.";
-        found_match = true;
-        tree_ = std::move(child);
-        tree_->parent = nullptr;
+        match = &child;
         break;
       }
     }
-    CHECK(found_match);
+    if (match == nullptr) {
+      // TODO(piotrf): re-enable vlog once absl supports it
+      //  VLOG(1) << "MCTS tree has no node for " << game.moves()[i].DebugString();
+      tree_ = std::make_unique<Node>();
+      break;
+    }
+    tree_ = std::move(*match);
+    tree_->parent = nullptr;
   }
 
   // Expand out the root, in case we didn't find it above.
@@ -216,6 +214,7 @@ Move MctsAI::SelectMove(const Game& game) {
   //   2) it's rare that a single move will lead to many future moves.
   if (tree_->children.size() == 1) {
     tree_ = std::move(tree_->children[0]);
+    tree_->parent = nullptr;
     return tree_->move;
   }
 
@@ -256,6 +255,7 @@ Move MctsAI::SelectMove(const Game& game) {
   //  VLOG(0) << "player " << player_id() << " estimate of winning = "
   //          << static_cast<double>((*best_child)->wins) / (*best_child)->visits;
   tree_ = std::move(*best_child);
+  tree_->parent = nullptr;
   return tree_->move;
 }
 

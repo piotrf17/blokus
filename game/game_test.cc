@@ -219,6 +219,18 @@ TEST(GameTest, PassingIsPermanent) {
   EXPECT_FALSE(game.Finished());
 }
 
+TEST(GameTest, NoPossibleMovesAfterPassing) {
+  Game game(4);
+  ASSERT_TRUE(game.MakeMove(Move::EmptyMove(BLUE)));
+  ASSERT_TRUE(game.MakeMove(Move::EmptyMove(YELLOW)));
+  ASSERT_TRUE(game.MakeMove(Move::EmptyMove(RED)));
+  EXPECT_THAT(game.PossibleMoves(), Not(IsEmpty()));
+  ASSERT_TRUE(game.MakeMove(MakeTestMove(GREEN, 0, 19, 0)));
+  // BLUE still has legal placements, but it already passed.
+  EXPECT_THAT(game.current_color(), Eq(BLUE));
+  EXPECT_THAT(game.PossibleMoves(), IsEmpty());
+}
+
 TEST(GameTest, FinishedOnceEveryColorPasses) {
   Game game(4);
   ASSERT_TRUE(game.MakeMove(Move::EmptyMove(BLUE)));

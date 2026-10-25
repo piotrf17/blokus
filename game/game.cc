@@ -60,6 +60,8 @@ bool Game::MakeMove(const Move& move) {
 
 std::vector<Move> Game::PossibleMoves() const {
   std::vector<Move> moves;
+  // Once a color passes, it can only pass.
+  if (players_with_moves_.count(current_color_) == 0) return moves;
   for (int tile = 0; tile < kNumTiles; ++tile) {
     if (!player_tiles_.at(current_color_)[tile]) continue;
     std::vector<Move> tile_moves = board_.PossibleMoves(

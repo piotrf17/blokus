@@ -32,6 +32,8 @@ class Game {
   bool MakeMove(const Move& move);
 
   // Returns a list of possible moves that the current player color can play.
+  // Passing is always allowed and is not included. Empty if the current color
+  // has already passed.
   std::vector<Move> PossibleMoves() const;
 
   // Returns true if the game is finished.

@@ -111,8 +111,8 @@ end-of-game scoring.
   player 0 = BLUE+RED, player 1 = YELLOW+GREEN. `current_player_` goes
   0,1,0,1 while colors go B,Y,R,G.
 - A pass (`tile == -1`) takes that color out of `players_with_moves_`. Once a
-  color has passed it can only pass. The game ends when every color has
-  passed.
+  color has passed it can only pass, and `PossibleMoves()` returns nothing
+  for it. The game ends when every color has passed.
 - Scoring (`Result()`): minus the number of squares left in hand. Placing all
   21 pieces scores +15, or +20 if the monomino was played last. In 2-player
   games a player's two colors are summed. `winner_id` is the first player
@@ -157,7 +157,8 @@ Picks uniformly from `game.PossibleMoves()`, or passes if there are none.
   `rand()`/`srand()`.
 - **Tree reuse**: on each `SelectMove`, the AI walks the stored tree down
   through the moves made since its last turn (`game.moves()`) and keeps that
-  subtree. If the tree runs out, it starts a new one.
+  subtree. If a move isn't in the tree (it was never expanded that far, or a
+  color passed while it still had moves), it starts a new tree.
 - **Move choice**: the most-visited root child. If there's only one legal
   move it's played immediately.
 - `MctsOptions`: `c` (1.4), `num_iterations`, `num_rollouts_per_iteration`,
@@ -234,8 +235,12 @@ safe. That's fine for a one-human local game.
   every move.
 - `bazel test --config=asan //...` runs the tests under AddressSanitizer and
   UndefinedBehaviorSanitizer. It is slow (`board_test` takes about 100 s).
-- There are no tests for `MctsAI`, `RandomAI`, `HttpServer`, or the JS
-  client.
+- `ai:mcts_test`: rollouts return a valid player id, the opening move is
+  legal, and full games with tree reuse for 2 and 4 players and with 4
+  threads finish. Also checks that the AI copes when an opponent passes while
+  it still has moves. The AIs use only 10 to 200 iterations, so these check
+  correctness, not playing strength.
+- There are no tests for `RandomAI`, `HttpServer`, or the JS client.
 
 ## Build and dependencies
 
@@ -259,15 +264,12 @@ From reading the code. These haven't been reproduced by a test.
 
 - The build has many `-Wsign-compare` warnings (`int` loop indexes compared
   against `.size()`).
-- `MctsAI::SelectMove` computes the replay start index as a `size_t` that can
-  underflow, and its `if (i < 0)` check never fires. It happens to work
-  because the loop condition fails too.
-- On the single-move and best-child paths, `tree_->parent` isn't reset to
-  null. The next replay step normally clears it.
 - Global `rand()` is shared by all MCTS threads, which is a likely source of
   contention and makes multi-threaded runs non-reproducible.
 - `Game::MakeMove` accepts a pass even when the color still has legal moves.
   The AIs only pass when they have no moves, but a human can pass early.
+- `Rollout` returns `GameResult::winner_id`, which gives ties to the lowest
+  player id. That biases MCTS toward player 0 in tied rollouts.
 - Nothing range-checks `Move::tile`. `blokus_main.cc` indexes `kTiles` with
   the tile from the HTTP request, and `Game::MakeMove` indexes its tile
   table, so an out-of-range tile is undefined behavior.
