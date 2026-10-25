@@ -7,6 +7,8 @@
 //   $ pprof -http=":8000" bazel-bin/ai/mcts_benchmark /tmp/mcts_benchmark.prof
 #include "ai/mcts.h"
 
+#include <random>
+
 #include "benchmark/benchmark.h"
 
 namespace blokus {
@@ -25,9 +27,10 @@ namespace {
 // BM_Rollout     932193 ns       932172 ns          728  (possible tile cache)
 
 static void BM_Rollout(benchmark::State& state) {
+  std::mt19937_64 rng(0);
   for (auto _ : state) {
     Game game(4);
-    Rollout(game);
+    Rollout(game, rng);
   }
 }
 BENCHMARK(BM_Rollout);
@@ -41,10 +44,12 @@ static void BM_SelectMove(benchmark::State& state) {
     };
     MctsAI ai(0, options);
     ai.SelectMove(game);
-    state.SetItemsProcessed(state.range(0));
-  }      
+  }
+  // Items are MCTS iterations.
+  state.SetItemsProcessed(state.iterations() * state.range(0));
 }
-BENCHMARK(BM_SelectMove)->Arg(10000);
+// The work happens in worker threads, so measure wall time.
+BENCHMARK(BM_SelectMove)->Arg(10000)->UseRealTime();
 
 }  // namespace
 }  // namespace blokus

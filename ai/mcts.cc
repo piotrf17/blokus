@@ -76,7 +76,7 @@ void ExpandNode(const Game& game, Node* node) {
 // Note that this function also includes the "expansion" phase in usual
 // MCTS terminology. A leaf node is only expanded if all siblings have been
 // visited at least once. After expansion, we return a child.
-Node* SelectNode(Node* node, Game* game, double c) {
+Node* SelectNode(Node* node, Game* game, double c, std::mt19937_64& rng) {
   // If a leaf node, possibly expand it and continue selection.
   if (node->children.empty()) {
     if (!ShouldExpand(*game, *node)) {
@@ -105,13 +105,14 @@ Node* SelectNode(Node* node, Game* game, double c) {
       children_with_max.push_back(i);
     }
   }
-  int selected_child = children_with_max[rand() % children_with_max.size()];
+  std::uniform_int_distribution<int> pick(0, children_with_max.size() - 1);
+  const int selected_child = children_with_max[pick(rng)];
   
   CHECK(game->MakeMove(node->children[selected_child]->move))
       << "SelectNode tried "
       << node->children[selected_child]->move.DebugString();
   
-  return SelectNode(node->children[selected_child].get(), game, c);
+  return SelectNode(node->children[selected_child].get(), game, c, rng);
 }
 
 
@@ -127,12 +128,13 @@ std::string Node::DebugString() const {
                          visits, children.size(), move.DebugString());
 }
 
-int Rollout(Game game) {
+int Rollout(Game game, std::mt19937_64& rng) {
   while (!game.Finished()) {
     std::vector<Move> possible_moves = game.PossibleMoves();
     Move move = Move::EmptyMove(game.current_color());
     if (!possible_moves.empty()) {
-      move = possible_moves[rand() % possible_moves.size()];
+      std::uniform_int_distribution<int> pick(0, possible_moves.size() - 1);
+      move = possible_moves[pick(rng)];
     }
     CHECK(game.MakeMove(move));
   }
@@ -140,24 +142,27 @@ int Rollout(Game game) {
   return game.Result().winner_id;
 }
 
-MctsAI::MctsAI(int player_id, const MctsOptions& options) :
-    Player(player_id), options_(options), tree_(std::make_unique<Node>()) {}
+MctsAI::MctsAI(int player_id, const MctsOptions& options)
+    : Player(player_id),
+      options_(options),
+      rng_(options.seed.has_value() ? *options.seed : std::random_device()()),
+      tree_(std::make_unique<Node>()) {}
 
 MctsAI::~MctsAI() {}
 
-void MctsAI::Iteration(Game game) {  
+void MctsAI::Iteration(Game game, std::mt19937_64& rng) {
   // Select and possibly expand a node.
   Node* node = nullptr;
   {
     std::lock_guard<std::mutex> lock(tree_mutex_);
-    node = SelectNode(tree_.get(), &game, options_.c);
+    node = SelectNode(tree_.get(), &game, options_.c, rng);
   }
 
   // Run rollouts on the selected node.
   for (int i = 0; i < options_.num_rollouts_per_iteration; ++i) {
     // TODO(piotrf): re-enable vlog once absl supports it
     //  VLOG(3) << "  MCTS running rollout " << i;
-    int winner = Rollout(game);
+    int winner = Rollout(game, rng);
     // TODO(piotrf): re-enable vlog once absl supports it
     //  VLOG(3) << "   rollout winner is " << winner;
 
@@ -220,14 +225,15 @@ Move MctsAI::SelectMove(const Game& game) {
 
   // Run MCTS iterations.
   {
-    // Launch all worker threads.
+    // Launch all worker threads, each with its own random number generator.
     std::vector<std::thread> workers;
     std::atomic<int> counter(0);
     for (int i = 0; i < options_.num_threads; ++i) {
-      workers.emplace_back([&]() {
-        while(true) {
+      workers.emplace_back([&, seed = rng_()]() {
+        std::mt19937_64 rng(seed);
+        while (true) {
           if (counter.fetch_add(1) >= options_.num_iterations) return;
-          Iteration(game);
+          Iteration(game, rng);
         }
       });
     }

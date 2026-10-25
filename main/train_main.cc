@@ -1,4 +1,5 @@
 #include <optional>
+#include <random>
 
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
@@ -14,7 +15,8 @@
 #include "game/logger.h"
 #include "game/game_runner.h"
 
-ABSL_FLAG(int, seed, -1, "Random number seed. If -1, use time.");
+ABSL_FLAG(int, seed, -1,
+          "Random number seed. If -1, seeds from std::random_device.");
 ABSL_FLAG(int, num_games, 10, "Number of games to play.");
 ABSL_FLAG(bool, print_board, false, "Print the board during play.");
 ABSL_FLAG(std::string, output_path, "",
@@ -36,11 +38,10 @@ int main(int argc, char **argv) {
   CHECK(num_players == 2 || num_players == 4);
   const int num_games = absl::GetFlag(FLAGS_num_games);
 
-  if (absl::GetFlag(FLAGS_seed) != -1) {
-    srand(absl::GetFlag(FLAGS_seed));
-  } else {
-    srand(time(NULL));
-  }
+  // Seeds each AI. With --seed and one MCTS thread, runs are reproducible.
+  std::mt19937_64 seeder(absl::GetFlag(FLAGS_seed) != -1
+                             ? absl::GetFlag(FLAGS_seed)
+                             : std::random_device()());
 
   const std::string output_path = absl::GetFlag(FLAGS_output_path);
   std::optional<blokus::GameLogger> logger;
@@ -58,11 +59,9 @@ int main(int argc, char **argv) {
       .num_rollouts_per_iteration = absl::GetFlag(FLAGS_num_mcts_rollouts),
       .num_threads = absl::GetFlag(FLAGS_num_mcts_threads),
     };
-    game.AddPlayer(absl::make_unique<blokus::MctsAI>(0, options));
-    game.AddPlayer(absl::make_unique<blokus::MctsAI>(1, options));
-    if (num_players == 4) {
-      game.AddPlayer(absl::make_unique<blokus::MctsAI>(2, options));
-      game.AddPlayer(absl::make_unique<blokus::MctsAI>(3, options));
+    for (int id = 0; id < num_players; ++id) {
+      options.seed = seeder();
+      game.AddPlayer(absl::make_unique<blokus::MctsAI>(id, options));
     }
 
     if (absl::GetFlag(FLAGS_print_board)) {

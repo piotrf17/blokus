@@ -137,6 +137,7 @@ the log yet. The proto `Color` enum mirrors `defs.h`.
 
 ### `RandomAI`
 Picks uniformly from `game.PossibleMoves()`, or passes if there are none.
+Takes an optional seed for its `std::mt19937_64`.
 
 ### `MctsAI`: Monte Carlo Tree Search with UCB1
 - `Node`: incoming `move`, the `player` who made it, `wins`, `visits`,
@@ -153,8 +154,11 @@ Picks uniformly from `game.PossibleMoves()`, or passes if there are none.
   color, this works for 2-player games where one player has two colors.
 - **Parallelism**: `num_threads` workers share a single tree.
   Selection/expansion and backprop happen under one `tree_mutex_`, and
-  rollouts run outside the lock. All randomness comes from global
-  `rand()`/`srand()`.
+  rollouts run outside the lock. Each worker thread has its own
+  `std::mt19937_64`, seeded from the AI's generator at the start of every
+  `SelectMove`. `MctsOptions::seed` seeds the AI (from `std::random_device`
+  if unset). With a seed and one thread, play is reproducible. With more
+  threads it isn't, because the threads interleave on the shared tree.
 - **Tree reuse**: on each `SelectMove`, the AI walks the stored tree down
   through the moves made since its last turn (`game.moves()`) and keeps that
   subtree. If a move isn't in the tree (it was never expanded that far, or a
@@ -162,7 +166,7 @@ Picks uniformly from `game.PossibleMoves()`, or passes if there are none.
 - **Move choice**: the most-visited root child. If there's only one legal
   move it's played immediately.
 - `MctsOptions`: `c` (1.4), `num_iterations`, `num_rollouts_per_iteration`,
-  `num_threads`.
+  `num_threads`, `seed`.
 
 ## Binaries (`main/`)
 
@@ -182,11 +186,12 @@ Starts `HttpServer` on **port 7777**, serving the static files in
 MCTS-vs-MCTS games with flags `--num_games`, `--num_players`,
 `--num_mcts_iterations`, `--num_mcts_rollouts`, `--num_mcts_threads`,
 `--seed`, `--print_board`, and `--output_path` (writes a `GamesLog` proto).
-Prints average scores at the end. This is meant to grow into the data
+`--seed` derives a seed for each AI. Prints average scores at the end. This is meant to grow into the data
 pipeline for a "BlokusZero"-style learned policy or value function.
 
 ### `ai:mcts_benchmark`
-Google Benchmark for `Rollout` and `SelectMove`. Links `-lprofiler`
+Google Benchmark for `Rollout` and `SelectMove` (10,000 iterations on 8
+threads, timed in wall time; items/sec is MCTS iterations). Links `-lprofiler`
 (gperftools) for CPU profiling; the file header has the `pprof` commands.
 
 ## Web client (`main/static/`)
@@ -239,8 +244,10 @@ safe. That's fine for a one-human local game.
   legal, and full games with tree reuse for 2 and 4 players and with 4
   threads finish. Also checks that the AI copes when an opponent passes while
   it still has moves. The AIs use only 10 to 200 iterations, so these check
-  correctness, not playing strength.
-- There are no tests for `RandomAI`, `HttpServer`, or the JS client.
+  correctness, not playing strength. A seeded single-threaded game is
+  checked to be reproducible.
+- `ai:random_test`: full games, passing with no moves, and reproducibility.
+- There are no tests for `HttpServer` or the JS client.
 
 ## Build and dependencies
 
@@ -264,8 +271,10 @@ From reading the code. These haven't been reproduced by a test.
 
 - The build has many `-Wsign-compare` warnings (`int` loop indexes compared
   against `.size()`).
-- Global `rand()` is shared by all MCTS threads, which is a likely source of
-  contention and makes multi-threaded runs non-reproducible.
+- `SelectMove` with 8 threads on 4 cores takes about 3.4 s for 10,000
+  iterations (about 1 ms per rollout), roughly 1.4x the ideal 2.5 s. The
+  single `tree_mutex_` and duplicate selection of the same leaf (there's no
+  virtual loss) are the likely costs.
 - `Game::MakeMove` accepts a pass even when the color still has legal moves.
   The AIs only pass when they have no moves, but a human can pass early.
 - `Rollout` returns `GameResult::winner_id`, which gives ties to the lowest

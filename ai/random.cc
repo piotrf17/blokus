@@ -3,11 +3,10 @@
 namespace blokus {
 
 Move RandomAI::SelectMove(const Game& game) {
-  std::vector<Move> moves = game.PossibleMoves();
-  if (moves.size() > 0) {
-    const Move& move = moves[rand() % moves.size()];
-    played_tiles_.insert(move.tile);
-    return move;
+  const std::vector<Move> moves = game.PossibleMoves();
+  if (!moves.empty()) {
+    std::uniform_int_distribution<int> pick(0, moves.size() - 1);
+    return moves[pick(rng_)];
   }
   return Move::EmptyMove(game.current_color());
 }

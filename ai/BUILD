@@ -47,3 +47,14 @@ cc_library(
         "//game:player",
     ],
 )
+
+cc_test(
+    name = "random_test",
+    srcs = ["random_test.cc"],
+    deps = [
+        ":random",
+        "//game",
+        "//game:game_runner",
+        "@googletest//:gtest_main",
+    ],
+)

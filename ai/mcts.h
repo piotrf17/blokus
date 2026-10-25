@@ -1,8 +1,11 @@
 #ifndef BLOKUS_AI_MCTS_H
 #define BLOKUS_AI_MCTS_H
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <random>
 #include <set>
 #include <string>
 
@@ -10,9 +13,9 @@
 
 namespace blokus {
 
-// Computes a rollout of the given game, using random actions for all players
-// moves. Returns the id of the winning player.
-int Rollout(Game game);
+// Computes a rollout of the given game, using random actions from `rng` for
+// all players' moves. Returns the id of the winning player.
+int Rollout(Game game, std::mt19937_64& rng);
 
 struct MctsOptions {
   // The exploration parameter for UCB1.
@@ -30,6 +33,12 @@ struct MctsOptions {
 
   // The number of parallel threads that are running iterations.
   int num_threads = 1;
+
+  // Seed for the AI's random number generator. If unset, seeds from
+  // std::random_device. With a seed and num_threads = 1, the AI's moves are
+  // reproducible. With more threads they aren't, since threads interleave
+  // their updates to the shared tree.
+  std::optional<uint64_t> seed;
 };
 
 struct Node;
@@ -43,9 +52,11 @@ class MctsAI : public Player {
   Move SelectMove(const Game& board) override;
 
  private:
-  void Iteration(Game game);
+  void Iteration(Game game, std::mt19937_64& rng);
 
   MctsOptions options_;
+  // Only used by the thread calling SelectMove, to seed the worker threads.
+  std::mt19937_64 rng_;
 
   std::mutex tree_mutex_;
   std::unique_ptr<Node> tree_;
