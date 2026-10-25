@@ -60,6 +60,19 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "logger_test",
+    srcs = ["logger_test.cc"],
+    deps = [
+        ":game",
+        ":game_log_cc_proto",
+        ":game_runner",
+        ":logger",
+        ":player",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "game",
     srcs = ["game.cc"],
@@ -97,6 +110,17 @@ cc_library(
         ":game",
         ":player",
         "@abseil-cpp//absl/log:check",
+    ],
+)
+
+cc_test(
+    name = "game_runner_test",
+    srcs = ["game_runner_test.cc"],
+    deps = [
+        ":game",
+        ":game_runner",
+        ":player",
+        "@googletest//:gtest_main",
     ],
 )
 

@@ -2,6 +2,7 @@
 #define BLOKUS_GAME_LOGGER_H_
 
 #include <fstream>
+#include <string_view>
 
 #include "game/game_log.pb.h"
 #include "game/game_runner.h"

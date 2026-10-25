@@ -226,9 +226,15 @@ safe. That's fine for a one-human local game.
   of the game, and scoring, including ties and 2-player sums. The +15/+20
   bonus tests find a full 21-tile placement for BLUE with a depth-first
   search while the other colors pass.
+- `game:game_runner_test`: scripted players check that each player is asked
+  only for its own colors (4 and 2 players), that observers see every move
+  after it's made, that the runner owns and destroys its players, and the
+  `CHECK`s on player setup and invalid moves.
+- `game:logger_test`: logs two games, then parses the file back and compares
+  every move.
 - `bazel test --config=asan //...` runs the tests under AddressSanitizer and
   UndefinedBehaviorSanitizer. It is slow (`board_test` takes about 100 s).
-- There are no tests for `GameRunner`, `MctsAI`, `HttpServer`, or the JS
+- There are no tests for `MctsAI`, `RandomAI`, `HttpServer`, or the JS
   client.
 
 ## Build and dependencies
