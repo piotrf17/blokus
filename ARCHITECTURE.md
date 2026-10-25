@@ -221,10 +221,15 @@ safe. That's fine for a one-human local game.
     and compares `PossibleMoves` for every remaining tile before each move.
   - `IsPossibleMatchesVerificationBoard` plays 2 games and, before each move,
     compares `IsPossible` for every orientation at every position.
+- `game:game_test`: hand-checked cases for turn order (4 and 2 players),
+  wrong-color and illegal moves, used tiles, passing being permanent, the end
+  of the game, and scoring, including ties and 2-player sums. The +15/+20
+  bonus tests find a full 21-tile placement for BLUE with a depth-first
+  search while the other colors pass.
 - `bazel test --config=asan //...` runs the tests under AddressSanitizer and
   UndefinedBehaviorSanitizer. It is slow (`board_test` takes about 100 s).
-- There are no tests for `Game`, `GameRunner`, `MctsAI`, `HttpServer`, or the
-  JS client.
+- There are no tests for `GameRunner`, `MctsAI`, `HttpServer`, or the JS
+  client.
 
 ## Build and dependencies
 
@@ -255,6 +260,11 @@ From reading the code. These haven't been reproduced by a test.
   null. The next replay step normally clears it.
 - Global `rand()` is shared by all MCTS threads, which is a likely source of
   contention and makes multi-threaded runs non-reproducible.
+- `Game::MakeMove` accepts a pass even when the color still has legal moves.
+  The AIs only pass when they have no moves, but a human can pass early.
+- Nothing range-checks `Move::tile`. `blokus_main.cc` indexes `kTiles` with
+  the tile from the HTTP request, and `Game::MakeMove` indexes its tile
+  table, so an out-of-range tile is undefined behavior.
 - `HttpServer::Request::status_` is uninitialized. `blokus.js` compares
   `PLAYERS[i] == 'computer'` (an object against a string) in its constructor.
 - `notes.org` holds personal notes and is git-ignored (`*.org`).

@@ -70,6 +70,15 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "game_test",
+    srcs = ["game_test.cc"],
+    deps = [
+        ":game",
+        "@googletest//:gtest_main",
+    ],
+)
+
 proto_library(
     name = "game_log_proto",
     srcs = ["game_log.proto"],
