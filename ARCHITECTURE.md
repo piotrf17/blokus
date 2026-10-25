@@ -206,8 +206,13 @@ safe. That's fine for a one-human local game.
 
 ## Tests
 
-- `game:tile_test`: corner/slot classification, bitmasks, and the
-  `CornerFitsSlot` table.
+- `game:defs_test`: `Color`, `Coord`, and `Placement` helpers.
+- `game:tile_test`: a few hand-written examples, plus exhaustive checks over
+  every tile and orientation against independent brute-force derivations:
+  piece sizes and orientation counts (89 squares, 91 orientations),
+  normalization and `offset`, row bitmaps, corner and slot sets and their
+  types, `Canonicalize` keeping the same cells, and the `CornerFitsSlot`
+  table derived from geometry.
 - `game:board_test`: hand-checked move lists, plus `MatchesVerificationBoard`,
   which plays a random game and compares the fast `Board::PossibleMoves`
   against the brute-force `VerificationBoard` on every turn.

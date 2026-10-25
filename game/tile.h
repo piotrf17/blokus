@@ -142,28 +142,31 @@ class TileOrientation {
   std::vector<uint32_t> expanded_rows_;
 };
 
-// TODO(piotrf): update this comment, parts of it are not true anymore.
-// All tiles are placed on a 5x5 block. The top-left corner is (0,0), and it
-// is guaranteed that a piece of the tile exists there. The coordinate system
-// increases in x to the right, and in y towards the bottom.
-// Rotation of a tile is done around the top-left corner, and proceeds
-// clockwise. e.g. (where x represents (0,0)):
+// A Blokus piece. Each tile is defined on a 5x5 grid of blocks, using (row,
+// col) coordinates with (0, 0) at the upper-left. Every tile has at least one
+// block in row 0 and in column 0, but block (0, 0) itself may be empty.
+//
+// Transform() rotates the blocks counter-clockwise (as drawn, with rows
+// increasing downwards) around (0, 0), in 90 degree steps. If flip is set, the
+// rotated blocks are then mirrored top-to-bottom (row -> -row). Transformed
+// coordinates may be negative. For example (where x marks (0, 0)):
 //
 // original       rotation=1        rotation=2       rotation=3
 // --------       ----------        ----------       ----------
-//   x                ox               o                 oo
+//   x                oo               o                 ox
 //   ooo              o                ooo               o
-//     o             oo                  x              xo
-//
-// Flipping is always done around the y-axis. So the flipped versions of the
-// above tile is:
+//     o             xo                  x              oo
 //
 // flipped        rotation=1        rotation=2       rotation=3
 // --------       ----------        ----------       ----------
-//     x             xo                  o              oo
+//     o             xo                  x              oo
 //   ooo              o                ooo               o
-//   o                oo               x                 ox
-
+//   x                oo               o                 ox
+//
+// Several transforms can give the same shape. orientations() holds one
+// TileOrientation per physically distinct shape, and moves on the board must
+// use the (rotation, flip) of one of those. Canonicalize() converts any
+// placement to that form.
 class Tile {
  public:
   explicit Tile(int index, std::vector<std::vector<bool>> blocks);

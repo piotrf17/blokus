@@ -40,6 +40,15 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "defs_test",
+    srcs = ["defs_test.cc"],
+    deps = [
+        ":defs",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "logger",
     srcs = ["logger.cc"],
