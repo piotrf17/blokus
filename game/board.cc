@@ -42,8 +42,9 @@ int PlacementHash(const Placement& p) {
   return RC(p.coord.row(), p.coord.col()) * 8 + p.rotation * 2 + p.flip;
 }
 
-constexpr int kMaxPlacementHash =
-    RC(Board::kNumRows - 1, Board::kNumCols - 1) * 8 + 3 * 2 + 1;
+// One more than the largest value PlacementHash can return.
+constexpr int kNumPlacementHashes =
+    RC(Board::kNumRows - 1, Board::kNumCols - 1) * 8 + 3 * 2 + 1 + 1;
 
 }  // namespace
 
@@ -155,7 +156,7 @@ std::vector<Move> Board::PossibleMoves(const Tile& tile, Color color) const {
 
   // Prevent duplicate moves that can occur when different corner/slot combos
   // result in the same exact placement.
-  bool placement_hashes[kMaxPlacementHash];
+  bool placement_hashes[kNumPlacementHashes];
   std::memset(placement_hashes, 0, sizeof placement_hashes);
 
   Move move_template;

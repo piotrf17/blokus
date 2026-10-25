@@ -213,9 +213,16 @@ safe. That's fine for a one-human local game.
   normalization and `offset`, row bitmaps, corner and slot sets and their
   types, `Canonicalize` keeping the same cells, and the `CornerFitsSlot`
   table derived from geometry.
-- `game:board_test`: hand-checked move lists, plus `MatchesVerificationBoard`,
-  which plays a random game and compares the fast `Board::PossibleMoves`
-  against the brute-force `VerificationBoard` on every turn.
+- `game:board_test`: hand-checked cases covering the start corners,
+  off-board placements, same-color and other-color adjacency, and invalid
+  moves leaving the board unchanged. Plus comparisons against the brute-force
+  `VerificationBoard`, which reuses the old frontier/allowed algorithm:
+  - `PossibleMovesMatchVerificationBoard` plays 20 random games to the end
+    and compares `PossibleMoves` for every remaining tile before each move.
+  - `IsPossibleMatchesVerificationBoard` plays 2 games and, before each move,
+    compares `IsPossible` for every orientation at every position.
+- `bazel test --config=asan //...` runs the tests under AddressSanitizer and
+  UndefinedBehaviorSanitizer. It is slow (`board_test` takes about 100 s).
 - There are no tests for `Game`, `GameRunner`, `MctsAI`, `HttpServer`, or the
   JS client.
 
@@ -237,17 +244,10 @@ safe. That's fine for a one-human local game.
 
 ## Known issues and sharp edges
 
-From reading the code. Unless a note says otherwise, these haven't been
-reproduced. Note that `MatchesVerificationBoard` passes, so none of the
-`Board` issues show up in the first 10 rounds of its random game.
+From reading the code. These haven't been reproduced by a test.
 
 - The build has many `-Wsign-compare` warnings (`int` loop indexes compared
   against `.size()`).
-- `Board::PossibleMoves` sizes `placement_hashes` as `kMaxPlacementHash`, but
-  the largest hash *equals* `kMaxPlacementHash`, so the array looks one
-  element too short.
-- `Board::IsPossible(Move)` returns after the first corner whose board
-  position matches a slot, without trying the remaining corners.
 - `MctsAI::SelectMove` computes the replay start index as a `size_t` that can
   underflow, and its `if (i < 0)` check never fires. It happens to work
   because the loop condition fails too.

@@ -4,3 +4,10 @@ common --host_cxxopt=-std=c++20
 # GNU ld 2.47 segfaults when Bazel passes --start-lib/--end-lib.
 common --features=-supports_start_end_lib
 common --host_features=-supports_start_end_lib
+
+# AddressSanitizer + UndefinedBehaviorSanitizer: bazel test --config=asan //...
+build:asan --strip=never
+build:asan --copt=-fsanitize=address,undefined
+build:asan --copt=-fno-omit-frame-pointer
+build:asan --copt=-fno-sanitize-recover=all
+build:asan --linkopt=-fsanitize=address,undefined

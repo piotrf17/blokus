@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <map>
 #include <random>
+#include <set>
+#include <string>
+#include <tuple>
+#include <vector>
 
 #include "absl/log/log.h"
 #include "absl/strings/str_cat.h"
@@ -14,7 +18,9 @@
 namespace blokus {
 namespace {
 
+using ::testing::ContainerEq;
 using ::testing::Eq;
+using ::testing::Gt;
 using ::testing::SizeIs;
 
 std::vector<Coord> PlacedTile(const Tile& tile, const Placement& placement) {
@@ -26,7 +32,9 @@ std::vector<Coord> PlacedTile(const Tile& tile, const Placement& placement) {
   return coors;
 }
 
+// Returns a bit flag for `color`, or 0 for INVALID (an empty cell).
 uint8_t ColorToByte(Color color) {
+  if (color == INVALID) return 0;
   return 1 << (color - 1);
 }
 
@@ -44,7 +52,8 @@ class VerificationBoard {
   bool IsPossible(const Move& move) const;
   std::vector<Move> PossibleMoves(const Tile& tile, Color color) const;
   bool MakeMove(const Move& move);
-  void Print(bool debug = false) const;
+  // Debugging aid, prints the board plus the frontier and allowed maps.
+  [[maybe_unused]] void Print(bool debug = false) const;
 
  private:
   void PrintAllowable(const uint8_t board[kNumRows][kNumCols]) const;
@@ -257,28 +266,105 @@ void VerificationBoard::Print(bool debug) const {
   }
 }
 
-TEST(BoardTest, IsPossible) {
+Move MakeTestMove(Color color, int tile, int row, int col, int rotation = 0,
+                  bool flip = false) {
+  Move move;
+  move.color = color;
+  move.tile = tile;
+  move.placement = {Coord(row, col), rotation, flip};
+  return move;
+}
+
+TEST(BoardTest, IsPossible_Start_1x1) {
   Board board;
-  // The 1x1 tile should be possible at the start in any orientation, but
-  // not anywhere else on the board.
-  // TODO(piotrf): re-enable this once we settle on a better API for moves,
-  // either involving TileOrientation, or de-duping the passed in orientation
-  // against a known one.
-  /* 
-  for (int rotation = 0; rotation < 4; rotation++) {
-    for (bool flip : {false, true}) {
-      for (int8_t x = 0; x < Board::kNumCols; ++x) {
-        for (int8_t y = 0; y < Board::kNumRows; ++y) {
-          if (x == 0 && y == 0) {
-            EXPECT_TRUE(board.IsPossible({BLUE, 0, {{x, y}, rotation, flip}}));
-          } else {
-            EXPECT_FALSE(board.IsPossible({BLUE, 0, {{x, y}, rotation, flip}}));
-          }
-        }
-      }
+  // At the start, the 1x1 tile can only go in each color's own corner.
+  for (int row = 0; row < Board::kNumRows; ++row) {
+    for (int col = 0; col < Board::kNumCols; ++col) {
+      EXPECT_THAT(board.IsPossible(MakeTestMove(BLUE, 0, row, col)),
+                  Eq(row == 0 && col == 0));
+      EXPECT_THAT(board.IsPossible(MakeTestMove(YELLOW, 0, row, col)),
+                  Eq(row == 0 && col == Board::kNumCols - 1));
+      EXPECT_THAT(board.IsPossible(MakeTestMove(RED, 0, row, col)),
+                  Eq(row == Board::kNumRows - 1 && col == Board::kNumCols - 1));
+      EXPECT_THAT(board.IsPossible(MakeTestMove(GREEN, 0, row, col)),
+                  Eq(row == Board::kNumRows - 1 && col == 0));
     }
   }
-  */
+}
+
+TEST(BoardTest, IsPossible_OffBoard) {
+  Board board;
+  // The 1x5 tile, horizontal, starting in BLUE's corner.
+  EXPECT_TRUE(board.IsPossible(MakeTestMove(BLUE, 14, 0, 0)));
+  // Hanging off the left or top edge.
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 14, 0, -1)));
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 14, -1, 0)));
+  // Vertical (rotation 1 goes up from the origin), so the origin must be at
+  // row 4 for the tile to cover (0, 0).
+  EXPECT_TRUE(board.IsPossible(MakeTestMove(BLUE, 14, 4, 0, 1)));
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 14, 3, 0, 1)));
+}
+
+TEST(BoardTest, MakeMove_SameColorRules) {
+  Board board;
+  // BLUE plays the 2x2 square in its corner, covering (0,0)-(1,1).
+  ASSERT_TRUE(board.MakeMove(MakeTestMove(BLUE, 4, 0, 0)));
+  // BLUE can't play on top of itself.
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 0, 1, 1)));
+  // BLUE can't play edge-adjacent to itself, even if it also touches a corner.
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 0, 0, 2)));
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 0, 2, 1)));
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 1, 2, 1)));
+  // BLUE can play touching only at a corner.
+  EXPECT_TRUE(board.IsPossible(MakeTestMove(BLUE, 0, 2, 2)));
+  // ... but not somewhere that touches nothing.
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 0, 3, 3)));
+}
+
+TEST(BoardTest, MakeMove_OtherColorsMayTouchEdges) {
+  Board board;
+  // BLUE zig-zags across the top with the 1x5: (0,0)-(0,4), (1,5)-(1,9),
+  // then (0,10)-(0,14).
+  ASSERT_TRUE(board.MakeMove(MakeTestMove(BLUE, 14, 0, 0)));
+  ASSERT_TRUE(board.MakeMove(MakeTestMove(BLUE, 14, 1, 5)));
+  ASSERT_TRUE(board.MakeMove(MakeTestMove(BLUE, 14, 0, 10)));
+  // YELLOW's 1x5 in its corner, (0,15)-(0,19), is edge-adjacent to BLUE's
+  // (0,14). That's allowed, since only same-color edges are forbidden.
+  ASSERT_TRUE(board.MakeMove(MakeTestMove(YELLOW, 14, 0, 15)));
+  // YELLOW's (1,14) is diagonal to YELLOW and edge-adjacent to BLUE: allowed.
+  EXPECT_TRUE(board.IsPossible(MakeTestMove(YELLOW, 0, 1, 14)));
+  // No color can play on top of another.
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(YELLOW, 0, 0, 14)));
+  EXPECT_FALSE(board.IsPossible(MakeTestMove(BLUE, 0, 0, 15)));
+}
+
+TEST(BoardTest, MakeMove_InvalidMoveDoesNotChangeBoard) {
+  Board board;
+  const std::vector<Move> before = board.PossibleMoves(kTiles[4], BLUE);
+  // Not touching BLUE's corner.
+  EXPECT_FALSE(board.MakeMove(MakeTestMove(BLUE, 4, 5, 5)));
+  EXPECT_THAT(board.PossibleMoves(kTiles[4], BLUE), ContainerEq(before));
+  EXPECT_THAT(board.PossibleMoves(kTiles[4], YELLOW), SizeIs(1));
+}
+
+TEST(BoardTest, PossibleMoves_StartInRedCorner) {
+  // RED starts in the bottom-right corner, so its first piece must have a
+  // block in the bottom-right of its bounding box. The L tetromino has 8
+  // orientations, and 6 of them have that block filled.
+  Board board;
+  std::vector<Move> moves = board.PossibleMoves(kTiles[7], RED);
+  EXPECT_THAT(moves, SizeIs(6));
+  for (const Move& move : moves) {
+    EXPECT_TRUE(board.IsPossible(move)) << move.DebugString();
+  }
+  // For orientation (rotation 3, flip true), the transform origin is the
+  // bottom-right block, so this placement has the largest coordinate on the
+  // board.
+  const Placement corner_placement{
+      Coord(Board::kNumRows - 1, Board::kNumCols - 1), 3, true};
+  EXPECT_TRUE(std::any_of(moves.begin(), moves.end(), [&](const Move& m) {
+    return m.placement == corner_placement;
+  }));
 }
 
 TEST(BoardTest, PossibleMoves_Start_1x1) {
@@ -415,79 +501,121 @@ TEST(BoardTest, PossibleMoves_PlayedLadder) {
 
 std::string PrintMoves(const std::vector<Move>& moves) {
   std::string out;
-  for (int i = 0; i < moves.size(); ++i) {
+  for (size_t i = 0; i < moves.size(); ++i) {
     absl::StrAppend(&out, i, ":", moves[i].DebugString(), "\n");
   }
   return out;
 }
 
-// Plays a random game, comparing possible moves when using Board vs. possible
-// moves when using VerificationBoard.
-TEST(BoardTest, MatchesVerificationBoard) {
+bool MoveLess(const Move& a, const Move& b) {
+  return std::tuple(a.tile, a.placement.coord.row(), a.placement.coord.col(),
+                    a.placement.rotation, a.placement.flip) <
+         std::tuple(b.tile, b.placement.coord.row(), b.placement.coord.col(),
+                    b.placement.rotation, b.placement.flip);
+}
+
+// Expects `board` and `ver_board` to agree on the possible moves for `color`
+// with every tile in `tiles_left`. Returns all of those moves.
+std::vector<Move> ExpectPossibleMovesMatch(const Board& board,
+                                           const VerificationBoard& ver_board,
+                                           Color color,
+                                           const std::vector<bool>& tiles_left) {
+  std::vector<Move> all_moves;
+  for (int tile = 0; tile < kNumTiles; ++tile) {
+    if (!tiles_left[tile]) continue;
+    std::vector<Move> moves = board.PossibleMoves(kTiles[tile], color);
+    std::vector<Move> ver_moves = ver_board.PossibleMoves(kTiles[tile], color);
+    std::sort(moves.begin(), moves.end(), MoveLess);
+    std::sort(ver_moves.begin(), ver_moves.end(), MoveLess);
+    EXPECT_TRUE(moves == ver_moves)
+        << ColorToString(color) << " tile " << tile << "\nBoard:\n"
+        << PrintMoves(moves) << "VerificationBoard:\n"
+        << PrintMoves(ver_moves);
+    all_moves.insert(all_moves.end(), moves.begin(), moves.end());
+  }
+  return all_moves;
+}
+
+// Expects `board` and `ver_board` to agree on IsPossible for every orientation
+// of every tile, with the origin anywhere on the board or one cell outside it.
+void ExpectIsPossibleMatches(const Board& board,
+                             const VerificationBoard& ver_board, Color color) {
+  int num_mismatches = 0;
+  std::string first_mismatch;
+  for (int tile = 0; tile < kNumTiles; ++tile) {
+    for (const TileOrientation& o : kTiles[tile].orientations()) {
+      for (int row = -1; row <= Board::kNumRows; ++row) {
+        for (int col = -1; col <= Board::kNumCols; ++col) {
+          const Move move =
+              MakeTestMove(color, tile, row, col, o.rotation(), o.flip());
+          const bool expected = ver_board.IsPossible(move);
+          if (board.IsPossible(move) != expected) {
+            if (num_mismatches++ == 0) {
+              first_mismatch =
+                  absl::StrCat(move.DebugString(), ", expected ", expected);
+            }
+          }
+        }
+      }
+    }
+  }
+  EXPECT_THAT(num_mismatches, Eq(0)) << "first mismatch: " << first_mismatch;
+}
+
+// Plays a random game to completion with seed `seed`, checking `Board` against
+// `VerificationBoard` before every move. Colors pass when they have no moves.
+// If `check_is_possible`, also checks IsPossible exhaustively, which is slow.
+// Returns the number of tiles played.
+int PlayVerifiedGame(int seed, bool check_is_possible) {
   Board board;
   VerificationBoard ver_board;
+  std::mt19937 eng(seed);
 
-  std::mt19937 eng(0);
+  std::map<Color, std::vector<bool>> tiles_left;
+  std::set<Color> passed;
+  for (Color color : {BLUE, YELLOW, RED, GREEN}) {
+    tiles_left[color] = std::vector<bool>(kNumTiles, true);
+  }
 
-  // Sorting comparator for moves.
-  auto compare =
-      [](const Move& a, const Move& b) {
-        if (a.placement.coord.row() < b.placement.coord.row()) return true;
-        if (a.placement.coord.row() > b.placement.coord.row()) return false;
- 
-        if (a.placement.coord.col() < b.placement.coord.col()) return true;
-        if (a.placement.coord.col() > b.placement.coord.col()) return false;
+  int num_moves = 0;
+  for (Color color = BLUE; passed.size() < 4; color = NextColor(color)) {
+    if (passed.count(color)) continue;
+    SCOPED_TRACE(testing::Message() << "move " << num_moves << ", "
+                                    << ColorToString(color) << "'s turn");
+    if (check_is_possible) ExpectIsPossibleMatches(board, ver_board, color);
+    std::vector<Move> moves =
+        ExpectPossibleMovesMatch(board, ver_board, color, tiles_left[color]);
+    if (testing::Test::HasFailure()) return num_moves;
 
-        if (a.placement.rotation < b.placement.rotation) return true;
-        if (a.placement.rotation > b.placement.rotation) return false;
-
-        return a.placement.flip < b.placement.flip;
-      };
-
-  // Everyone starts with all tiles.
-  std::map<Color, std::vector<bool>> player_tiles;
-  player_tiles[BLUE] = std::vector<bool>(kNumTiles, true);
-  player_tiles[YELLOW] = std::vector<bool>(kNumTiles, true);
-  player_tiles[RED] = std::vector<bool>(kNumTiles, true);
-  player_tiles[GREEN] = std::vector<bool>(kNumTiles, true);
-
-  for (int round = 0; round < 10; ++round) {
-    LOG(INFO) << "Round " << round;
-    for (Color color : {BLUE, YELLOW, RED, GREEN}) {
-      LOG(INFO) << ColorToString(color) << "'s turn";
-      std::vector<Move> all_moves;
-      for (int tile = 0; tile < kNumTiles; ++tile) {
-        if (!player_tiles[color][tile]) continue;
-        
-        LOG(INFO) << "  Looking at tile " << tile;
-        // Get possible moves using both boards, and compare.
-        std::vector<Move> moves = board.PossibleMoves(kTiles[tile], color);
-        std::vector<Move> ver_moves =
-            ver_board.PossibleMoves(kTiles[tile], color);
-        std::sort(moves.begin(), moves.end(), compare);
-        std::sort(ver_moves.begin(), ver_moves.end(), compare);
-        ASSERT_THAT(moves.size(), Eq(ver_moves.size()))
-            << PrintMoves(moves) << "\n" << PrintMoves(ver_moves);
-        for (int i = 0; i < moves.size(); ++i) {
-          ASSERT_THAT(moves[i].placement.coord,
-                      Eq(ver_moves[i].placement.coord));
-          ASSERT_THAT(moves[i].placement.rotation,
-                      Eq(ver_moves[i].placement.rotation));
-          ASSERT_THAT(moves[i].placement.flip,
-                      Eq(ver_moves[i].placement.flip));
-        }
-        all_moves.insert(all_moves.end(), moves.begin(), moves.end());
-      }
-
-      // Now, pick a move at random and make it.
-      std::uniform_int_distribution<int> dist(0, all_moves.size() - 1);
-      int move_idx = dist(eng);
-      LOG(INFO) << "  => Making move " << all_moves[move_idx].DebugString();
-      board.MakeMove(all_moves[move_idx]);
-      ver_board.MakeMove(all_moves[move_idx]);
-      player_tiles[color][all_moves[move_idx].tile] = false;
-      board.Print(true);
+    if (moves.empty()) {
+      passed.insert(color);
+      continue;
     }
+    std::uniform_int_distribution<size_t> dist(0, moves.size() - 1);
+    const Move& move = moves[dist(eng)];
+    EXPECT_TRUE(board.MakeMove(move)) << move.DebugString();
+    EXPECT_TRUE(ver_board.MakeMove(move)) << move.DebugString();
+    tiles_left[color][move.tile] = false;
+    ++num_moves;
+  }
+  return num_moves;
+}
+
+TEST(BoardTest, PossibleMovesMatchVerificationBoard) {
+  for (int seed = 0; seed < 20; ++seed) {
+    SCOPED_TRACE(testing::Message() << "seed " << seed);
+    const int num_moves = PlayVerifiedGame(seed, /*check_is_possible=*/false);
+    ASSERT_FALSE(HasFailure());
+    // Sanity check that the games actually went somewhere.
+    EXPECT_THAT(num_moves, Gt(40));
+  }
+}
+
+TEST(BoardTest, IsPossibleMatchesVerificationBoard) {
+  for (int seed = 100; seed < 102; ++seed) {
+    SCOPED_TRACE(testing::Message() << "seed " << seed);
+    PlayVerifiedGame(seed, /*check_is_possible=*/true);
+    ASSERT_FALSE(HasFailure());
   }
 }
 

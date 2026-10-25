@@ -25,6 +25,9 @@ bazel run -c opt //main:train -- --num_games=10 --num_players=2 --stderrthreshol
 - Logging uses Abseil, which only prints WARNING and above to stderr by
   default. Pass `--stderrthreshold=0` to see INFO logs. glog's
   `--alsologtostderr` flag doesn't exist here.
+- `bazel test --config=asan //...` runs the tests under ASan and UBSan. Run
+  it after any change to `game/` or `ai/` that touches memory, indexing, or
+  bit manipulation.
 - `.bazelrc` turns off the `supports_start_end_lib` toolchain feature because
   GNU ld 2.47 segfaults on `--start-lib`. Leave that line in.
 - System libraries (installed machine-wide, not through Bazel):
