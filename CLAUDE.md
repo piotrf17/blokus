@@ -1,0 +1,72 @@
+# CLAUDE.md
+
+A Blokus AI written in C++ and built with Bazel. Read `ARCHITECTURE.md` for
+how the code fits together, and keep it up to date when you change
+architecture.
+
+## Build, test, run
+
+```bash
+bazel build //...
+bazel test //...                          # all tests
+bazel test //game:board_test --test_output=errors
+bazel run -c opt //ai:mcts_benchmark      # perf: always use -c opt
+bazel build -c opt //main:blokus && bazel-bin/main/blokus   # run from repo root; serves on :7777
+bazel run -c opt //main:train -- --num_games=10 --num_players=2
+```
+
+- System libraries (installed machine-wide, not through Bazel):
+  `libmicrohttpd-dev`, `libjsoncpp-dev`, `libgoogle-perftools-dev`.
+- The dev environment is a VM. If a tool or library is missing, **ask the
+  user to install it** instead of installing it yourself.
+
+## Code style
+
+- Follow the [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html):
+  - 2-space indent, 80-column lines.
+  - `CamelCase` types and functions, `snake_case` variables,
+    `trailing_underscore_` members, `kConstantName` constants.
+  - Header guards are `BLOKUS_<DIR>_<FILE>_H_`.
+  - Include order: the file's own header, then C/C++ system headers, then
+    third-party (absl, etc.), then project headers (`"game/board.h"`), with a
+    blank line between groups.
+  - Everything goes in `namespace blokus`, with an anonymous namespace for
+    file-local helpers.
+- Use Abseil for logging (`absl/log/log.h`, `absl/log/check.h`), flags,
+  strings (`StrCat`, `StrFormat`), and `absl::Span`. Don't use glog or gflags.
+- Use `CHECK` for invariants and programmer errors. Game-rule violations
+  return `false`; they are not crashes.
+- TODOs are written `// TODO(piotrf): ...`.
+- Match the comment density of the surrounding code. Public APIs in headers
+  get a comment explaining their contract.
+- Every new `.cc` file needs a target in its directory's `BUILD` file, with
+  explicit deps (one `cc_library` per header/source pair is the convention).
+  Use `cc_test` with `@com_google_googletest//:gtest_main` for tests, and use
+  gMock matchers (`EXPECT_THAT(x, Eq(...))`) as the existing tests do.
+- Name test files `foo_test.cc`, placed next to `foo.cc`.
+
+## Engineering rules
+
+- **Performance matters in `game/board.*` and `ai/mcts.*`.** Rollout speed
+  directly limits how strong MCTS can get. Before and after changing
+  hot-path code, run `bazel run -c opt //ai:mcts_benchmark` and report the
+  numbers. Notable improvements get added to the history table in
+  `ai/mcts_benchmark.cc`.
+- `Board` move generation must keep matching the brute-force
+  `VerificationBoard` in `game/board_test.cc`. Keep that test passing after
+  any change to `Board` or `Tile`.
+- `Move` placements must use canonical (rotation, flip) values from
+  `Tile::orientations()`. Use `Tile::Canonicalize` on anything coming from
+  outside the engine.
+- In 2-player games each player controls two colors. Use player ids, not
+  colors, for anything about winning or scoring.
+- The JS client (`main/static/`) duplicates the engine logic. If you change
+  the game rules or the tile definitions, update both the C++ and the JS.
+- Don't modify the vendored `main/static/jquery-3.1.0.js`.
+
+## Git
+
+- Work directly on `master`, one change at a time. Leave changes uncommitted
+  so the user can review them; commit only when the user asks.
+- `*.org` files (the user's personal notes) and `.vscode/` are git-ignored.
+  Don't edit them unless asked.
