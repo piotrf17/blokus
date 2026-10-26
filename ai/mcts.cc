@@ -23,8 +23,9 @@ struct Node {
   // The player that played the above move.
   int player = -1;
 
-  // The number of wins tracked for having made the above move.
-  int wins = 0;
+  // The total reward for `player` over the rollouts through this node: 1 per
+  // win, and a share of 1 per tie (see Rewards).
+  double wins = 0;
 
   // The number of times rollouts have visited the above move.
   int visits = 0;
@@ -100,7 +101,7 @@ Node* SelectNode(Node* node, Game* game, double c, int virtual_loss,
     const Node& child = *node->children[i];
     if (child.visits == 0) continue;
     ucb1[i] =
-        1.0 * child.wins / child.visits + c * std::sqrt(logN / child.visits);
+        child.wins / child.visits + c * std::sqrt(logN / child.visits);
   }
 
   // If there are multiple children with the max UCB1, then select randomly.
@@ -131,12 +132,24 @@ std::string Node::DebugString() const {
     return "uninitialized";
   }
   
-  const double win_rate = visits > 0 ? static_cast<float>(wins) / visits : 0.0;
-  return absl::StrFormat("(%.3f %d/%d), %d children, %s", win_rate, wins,
+  const double win_rate = visits > 0 ? wins / visits : 0.0;
+  return absl::StrFormat("(%.3f %.1f/%d), %d children, %s", win_rate, wins,
                          visits, children.size(), move.DebugString());
 }
 
-int Rollout(Game game, std::mt19937_64& rng) {
+PlayerRewards Rewards(const GameResult& result) {
+  const int max_score =
+      *std::max_element(result.scores.begin(), result.scores.end());
+  const int num_winners =
+      std::count(result.scores.begin(), result.scores.end(), max_score);
+  PlayerRewards rewards = {};
+  for (int i = 0; i < static_cast<int>(result.scores.size()); ++i) {
+    if (result.scores[i] == max_score) rewards[i] = 1.0 / num_winners;
+  }
+  return rewards;
+}
+
+PlayerRewards Rollout(Game game, std::mt19937_64& rng) {
   while (!game.Finished()) {
     const int num_moves = game.NumPossibleMoves();
     Move move = Move::EmptyMove(game.current_color());
@@ -147,7 +160,7 @@ int Rollout(Game game, std::mt19937_64& rng) {
     CHECK(game.MakeMove(move));
   }
   // TODO(piotrf): use score margin as well?
-  return game.Result().winner_id;
+  return Rewards(game.Result());
 }
 
 MctsAI::MctsAI(int player_id, const MctsOptions& options)
@@ -172,19 +185,18 @@ void MctsAI::Iteration(Game game, std::mt19937_64& rng) {
   for (int i = 0; i < options_.num_rollouts_per_iteration; ++i) {
     // TODO(piotrf): re-enable vlog once absl supports it
     //  VLOG(3) << "  MCTS running rollout " << i;
-    int winner = Rollout(game, rng);
-    // TODO(piotrf): re-enable vlog once absl supports it
-    //  VLOG(3) << "   rollout winner is " << winner;
+    const PlayerRewards rewards = Rollout(game, rng);
 
-    // Bookkeeping on the winner.
+    // Credit each node with the reward of the player who made its move.
     std::lock_guard<std::mutex> lock(tree_mutex_);
     Node* update_node = node;
     CHECK(update_node->parent != nullptr);
     while (update_node != nullptr) {
       // The first rollout's visit replaces the virtual loss from selection.
       update_node->visits += i == 0 ? 1 - virtual_loss : 1;
-      if (update_node->player == winner) {
-        update_node->wins++;
+      // The root has no move, and its player is -1.
+      if (update_node->player >= 0) {
+        update_node->wins += rewards[update_node->player];
       }
       update_node = update_node->parent;
     }
@@ -270,7 +282,7 @@ Move MctsAI::SelectMove(const Game& game) {
   CHECK(best_child != nullptr);
   // TODO(piotrf): re-enable vlog once absl supports it
   //  VLOG(0) << "player " << player_id() << " estimate of winning = "
-  //          << static_cast<double>((*best_child)->wins) / (*best_child)->visits;
+  //          << (*best_child)->wins / (*best_child)->visits;
   tree_ = std::move(*best_child);
   tree_->parent = nullptr;
   return tree_->move;

@@ -141,7 +141,8 @@ end-of-game scoring.
 - Scoring (`Result()`): minus the number of squares left in hand. Placing all
   21 pieces scores +15, or +20 if the monomino was played last. In 2-player
   games a player's two colors are summed. `winner_id` is the first player
-  with the maximum score, so ties go to the lower id.
+  with the maximum score, so ties go to the lower id. MCTS doesn't use it;
+  it splits ties with `Rewards()` instead.
 - `Game` is copied by value freely, for example once per MCTS rollout.
 
 ### `player.h`, `game_runner.h`: the game loop
@@ -175,9 +176,11 @@ Takes an optional seed for its `std::mt19937_64`.
 - **Rollout** (`Rollout`): uniformly random moves for every color until the
   game ends. It picks an index with `Game::NumPossibleMoves` and fetches only
   that move with `Game::PossibleMove`, instead of building the full list.
-  Returns the winning player id; the score margin isn't used.
-- **Backprop**: walk up to the root and increment `visits`, plus `wins` on
-  nodes whose `player` won. Because `player` is a player id rather than a
+  Returns `Rewards(result)`: 1 for the sole top scorer, or 1/k for each of k
+  players tied for the top score (ties happen in about 3% of random 2-player
+  rollouts and 8% of 4-player ones). The score margin isn't used.
+- **Backprop**: walk up to the root, incrementing `visits` and adding the
+  reward of each node's `player` to its `wins` (a `double`). Because `player` is a player id rather than a
   color, this works for 2-player games where one player has two colors.
 - **Parallelism**: `num_threads` workers share a single tree.
   Selection/expansion and backprop happen under one `tree_mutex_`, and
@@ -329,8 +332,6 @@ From reading the code. These haven't been reproduced by a test.
   strength"). It hasn't been tuned yet.
 - `Game::MakeMove` accepts a pass even when the color still has legal moves.
   The AIs only pass when they have no moves, but a human can pass early.
-- `Rollout` returns `GameResult::winner_id`, which gives ties to the lowest
-  player id. That biases MCTS toward player 0 in tied rollouts.
 - Nothing range-checks `Move::tile`. `blokus_main.cc` indexes `kTiles` with
   the tile from the HTTP request, and `Game::MakeMove` indexes its tile
   table, so an out-of-range tile is undefined behavior.

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <random>
+#include <utility>
 #include <vector>
 
 #include "gmock/gmock.h"
@@ -15,6 +16,8 @@
 namespace blokus {
 namespace {
 
+using ::testing::DoubleEq;
+using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Gt;
 using ::testing::IsEmpty;
@@ -47,26 +50,57 @@ std::vector<Move> PlayMctsGame(int num_players, const MctsOptions& options) {
   return moves;
 }
 
-TEST(RolloutTest, ReturnsAPlayerId) {
+GameResult MakeResult(std::vector<int> scores) {
+  GameResult result;
+  result.winner_id = 0;
+  result.scores = std::move(scores);
+  return result;
+}
+
+TEST(RewardsTest, SoleWinner) {
+  EXPECT_THAT(Rewards(MakeResult({-10, -5})), ElementsAre(0, 1, 0, 0));
+  EXPECT_THAT(Rewards(MakeResult({-3, -20, -1, -40})),
+              ElementsAre(0, 0, 1, 0));
+}
+
+TEST(RewardsTest, TiesSplitTheReward) {
+  EXPECT_THAT(Rewards(MakeResult({-7, -7})), ElementsAre(0.5, 0.5, 0, 0));
+  // Player 0 isn't in the tie, so it gets nothing.
+  EXPECT_THAT(Rewards(MakeResult({-9, -4, -6, -4})),
+              ElementsAre(0, 0.5, 0, 0.5));
+  EXPECT_THAT(Rewards(MakeResult({15, -2, 15, 15})),
+              ElementsAre(1.0 / 3, 0, 1.0 / 3, 1.0 / 3));
+  EXPECT_THAT(Rewards(MakeResult({-89, -89, -89, -89})),
+              ElementsAre(0.25, 0.25, 0.25, 0.25));
+}
+
+TEST(RewardsTest, FromFinishedGame) {
+  // Every color passes, so all 4 players tie.
+  Game game(4);
+  while (!game.Finished()) {
+    ASSERT_TRUE(game.MakeMove(Move::EmptyMove(game.current_color())));
+  }
+  EXPECT_THAT(Rewards(game.Result()), ElementsAre(0.25, 0.25, 0.25, 0.25));
+}
+
+TEST(RolloutTest, RewardsSumToOne) {
   std::mt19937_64 rng(1);
-  for (int i = 0; i < 5; ++i) {
-    const int winner2 = Rollout(Game(2), rng);
-    EXPECT_TRUE(winner2 == 0 || winner2 == 1) << winner2;
-    const int winner4 = Rollout(Game(4), rng);
-    EXPECT_TRUE(winner4 >= 0 && winner4 < 4) << winner4;
+  for (int i = 0; i < 20; ++i) {
+    const PlayerRewards rewards2 = Rollout(Game(2), rng);
+    EXPECT_THAT(rewards2[0] + rewards2[1], DoubleEq(1.0));
+    EXPECT_THAT(rewards2[2] + rewards2[3], Eq(0));
+    const PlayerRewards rewards4 = Rollout(Game(4), rng);
+    EXPECT_THAT(rewards4[0] + rewards4[1] + rewards4[2] + rewards4[3],
+                DoubleEq(1.0));
   }
 }
 
-TEST(RolloutTest, SameSeedSameWinners) {
+TEST(RolloutTest, SameSeedSameRewards) {
   std::mt19937_64 rng1(7);
   std::mt19937_64 rng2(7);
-  std::vector<int> winners1;
-  std::vector<int> winners2;
   for (int i = 0; i < 10; ++i) {
-    winners1.push_back(Rollout(Game(4), rng1));
-    winners2.push_back(Rollout(Game(4), rng2));
+    EXPECT_THAT(Rollout(Game(4), rng1), Eq(Rollout(Game(4), rng2)));
   }
-  EXPECT_THAT(winners1, Eq(winners2));
 }
 
 TEST(MctsAITest, OpeningMoveIsLegal) {

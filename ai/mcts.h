@@ -1,6 +1,7 @@
 #ifndef BLOKUS_AI_MCTS_H
 #define BLOKUS_AI_MCTS_H
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -13,9 +14,16 @@
 
 namespace blokus {
 
+// A reward per player id. Entries past the number of players are 0.
+using PlayerRewards = std::array<double, 4>;
+
+// Returns the rewards for a finished game: 1 for the sole top scorer, or 1/k
+// for each of k players tied for the top score, and 0 for everyone else.
+PlayerRewards Rewards(const GameResult& result);
+
 // Computes a rollout of the given game, using random actions from `rng` for
-// all players' moves. Returns the id of the winning player.
-int Rollout(Game game, std::mt19937_64& rng);
+// all players' moves. Returns the Rewards of the finished game.
+PlayerRewards Rollout(Game game, std::mt19937_64& rng);
 
 struct MctsOptions {
   // The exploration parameter for UCB1.
