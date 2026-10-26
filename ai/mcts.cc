@@ -4,7 +4,10 @@
 #include <atomic>
 #include <cmath>
 #include <limits>
+#include <random>
 #include <thread>
+#include <tuple>
+#include <vector>
 
 #include "absl/log/check.h"
 #include "absl/strings/str_format.h"
@@ -269,17 +272,26 @@ Move MctsAI::SelectMove(const Game& game) {
   // Pick the best move.
   // TODO(piotrf): re-enable vlog once absl supports it
   //  VLOG(1) << "MCTS picking from " << tree_->children.size() << " moves.";
-  int max_visits = 0;
-  std::unique_ptr<Node>* best_child = nullptr;
+  // The most-visited child, breaking ties by total reward and then randomly.
+  // With fewer iterations than moves, many children tie at one visit, and
+  // children are in tile order, so taking the first tie would favor the
+  // smallest tiles.
+  std::vector<std::unique_ptr<Node>*> best_children;
   for (std::unique_ptr<Node>& child : tree_->children) {
     // TODO(piotrf): re-enable vlog once absl supports it
     //  VLOG(2) << child->DebugString();
-    if (child->visits > max_visits) {
-      max_visits = child->visits;
-      best_child = &child;
+    if (!best_children.empty()) {
+      const Node& best = **best_children.front();
+      const auto key = std::tie(child->visits, child->wins);
+      const auto best_key = std::tie(best.visits, best.wins);
+      if (key < best_key) continue;
+      if (key > best_key) best_children.clear();
     }
+    best_children.push_back(&child);
   }
-  CHECK(best_child != nullptr);
+  CHECK(!best_children.empty());
+  std::uniform_int_distribution<int> pick(0, best_children.size() - 1);
+  std::unique_ptr<Node>* best_child = best_children[pick(rng_)];
   // TODO(piotrf): re-enable vlog once absl supports it
   //  VLOG(0) << "player " << player_id() << " estimate of winning = "
   //          << (*best_child)->wins / (*best_child)->visits;

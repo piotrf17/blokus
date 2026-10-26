@@ -12,6 +12,7 @@
 #include "game/game.h"
 #include "game/game_runner.h"
 #include "game/player.h"
+#include "game/tile.h"
 
 namespace blokus {
 namespace {
@@ -109,6 +110,18 @@ TEST(MctsAITest, OpeningMoveIsLegal) {
   const Move move = ai.SelectMove(game);
   EXPECT_THAT(move.color, Eq(BLUE));
   EXPECT_TRUE(game.MakeMove(move)) << move.DebugString();
+}
+
+// With fewer iterations than moves, the visited moves tie at one visit each.
+// Ties must not go to the first move, which is always the smallest tile.
+TEST(MctsAITest, FewIterationsDoNotFavorSmallTiles) {
+  int num_pentominoes = 0;
+  for (uint64_t seed = 0; seed < 40; ++seed) {
+    Game game(2);
+    MctsAI ai(0, SmallOptions(3, seed));
+    num_pentominoes += kTiles[ai.SelectMove(game).tile].Size() == 5;
+  }
+  EXPECT_THAT(num_pentominoes, Gt(25));
 }
 
 // Each SelectMove replays the opponents' moves into the tree it kept from its

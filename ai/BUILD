@@ -25,6 +25,7 @@ cc_test(
         "//game",
         "//game:game_runner",
         "//game:player",
+        "//game:tile",
         "@googletest//:gtest_main",
     ],
 )

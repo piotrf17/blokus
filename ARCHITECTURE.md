@@ -199,8 +199,9 @@ Takes an optional seed for its `std::mt19937_64`.
   through the moves made since its last turn (`game.moves()`) and keeps that
   subtree. If a move isn't in the tree (it was never expanded that far, or a
   color passed while it still had moves), it starts a new tree.
-- **Move choice**: the most-visited root child. If there's only one legal
-  move it's played immediately.
+- **Move choice**: the most-visited root child, breaking ties by total
+  reward and then randomly. If there's only one legal move it's played
+  immediately.
 - `MctsOptions`: `c` (0.25), `num_iterations`, `num_rollouts_per_iteration`,
   `num_threads`, `virtual_loss`, `seed`.
 
@@ -237,6 +238,13 @@ Threads and virtual loss at `c = 0.25`, 10k iterations:
 - 4 threads, virtual loss 1 vs none: 0.51 ± 0.10. Virtual loss 3 vs none:
   0.53 ± 0.10. Neither is significant, but the trend is upward, so the
   default is 3.
+
+Move-choice tie-break: MCTS used to take the first of the most-visited
+children. Children are in tile order, so with fewer iterations than moves it
+played the smallest tile it had tried. The old tie-break against the current
+one (104 games each): 0.37 ± 0.09 at 1000 iterations, 0.50 ± 0.10 at 10k.
+Random scored 0.60 against the old MCTS at 30 iterations, and 0.05 against
+the current one. The `c` sweep at 1000 iterations above predates this fix.
 
 ## Binaries (`main/`)
 
