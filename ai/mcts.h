@@ -47,7 +47,9 @@ struct MctsOptions {
   // With more than one thread, each node on the path an iteration selects
   // counts this many extra visits (losses) until that iteration's rollout
   // result comes back. This keeps threads from all exploring the same leaf.
-  int virtual_loss = 0;
+  // At 10k iterations with 4 threads it measured as neutral to slightly
+  // helpful (see ARCHITECTURE.md).
+  int virtual_loss = 3;
 
   // Seed for the AI's random number generator. If unset, seeds from
   // std::random_device. With a seed and num_threads = 1, the AI's moves are

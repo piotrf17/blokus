@@ -29,13 +29,15 @@ ABSL_FLAG(int, a_iterations, 1000, "MCTS iterations per move for A.");
 ABSL_FLAG(int, a_threads, 1, "MCTS threads for A.");
 ABSL_FLAG(double, a_c, blokus::MctsOptions().c,
           "UCB1 exploration constant for A.");
-ABSL_FLAG(int, a_virtual_loss, 0, "MCTS virtual loss for A.");
+ABSL_FLAG(int, a_virtual_loss, blokus::MctsOptions().virtual_loss,
+          "MCTS virtual loss for A.");
 
 ABSL_FLAG(int, b_iterations, 1000, "MCTS iterations per move for B.");
 ABSL_FLAG(int, b_threads, 1, "MCTS threads for B.");
 ABSL_FLAG(double, b_c, blokus::MctsOptions().c,
           "UCB1 exploration constant for B.");
-ABSL_FLAG(int, b_virtual_loss, 0, "MCTS virtual loss for B.");
+ABSL_FLAG(int, b_virtual_loss, blokus::MctsOptions().virtual_loss,
+          "MCTS virtual loss for B.");
 
 namespace blokus {
 namespace {

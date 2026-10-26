@@ -191,10 +191,10 @@ Takes an optional seed for its `std::mt19937_64`.
   threads it isn't, because the threads interleave on the shared tree.
   Throughput scales well up to the core count (10k iterations: 1 thread
   2.1 s, 4 threads 0.62 s on the 4-vCPU VM), and more threads than cores is
-  slower. `MctsOptions::virtual_loss` (default 0, only used with more than
+  slower. `MctsOptions::virtual_loss` (default 3, only used with more than
   one thread) adds temporary losses along the selected path so threads
-  spread out. In matches at 1000 iterations it made play weaker, not
-  stronger: see "Playing strength" below.
+  spread out. At `c = 0.25` it measured as neutral to slightly helpful:
+  see "Playing strength" below.
 - **Tree reuse**: on each `SelectMove`, the AI walks the stored tree down
   through the moves made since its last turn (`game.moves()`) and keeps that
   subtree. If a move isn't in the tree (it was never expanded that far, or a
@@ -229,6 +229,14 @@ Tuning `c` (100 games unless noted):
 The best `c` grows with the budget: at 1000 iterations pure exploitation
 (`c = 0`) is as good as anything, but at 10k it loses badly. `c = 0.25` is
 the default, tuned for the 10k-20k budgets the binaries use.
+
+Threads and virtual loss at `c = 0.25`, 10k iterations:
+- 4 threads vs 1 thread: 0.49 ± 0.10, with 2.8x less time per move. The
+  advantage at `c = 1.4` came from threads exploiting more, and is gone now
+  that `c` is tuned.
+- 4 threads, virtual loss 1 vs none: 0.51 ± 0.10. Virtual loss 3 vs none:
+  0.53 ± 0.10. Neither is significant, but the trend is upward, so the
+  default is 3.
 
 ## Binaries (`main/`)
 

@@ -136,6 +136,7 @@ TEST(MctsAITest, PlaysFullGameWithVirtualLoss) {
 // A single thread doesn't use virtual loss, so it plays the same moves.
 TEST(MctsAITest, VirtualLossDoesNotChangeSingleThread) {
   MctsOptions options = SmallOptions(20, /*seed=*/8);
+  options.virtual_loss = 0;
   const std::vector<Move> without = PlayMctsGame(2, options);
   options.virtual_loss = 3;
   EXPECT_THAT(PlayMctsGame(2, options), Eq(without));
