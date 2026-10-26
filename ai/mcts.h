@@ -34,6 +34,11 @@ struct MctsOptions {
   // The number of parallel threads that are running iterations.
   int num_threads = 1;
 
+  // With more than one thread, each node on the path an iteration selects
+  // counts this many extra visits (losses) until that iteration's rollout
+  // result comes back. This keeps threads from all exploring the same leaf.
+  int virtual_loss = 0;
+
   // Seed for the AI's random number generator. If unset, seeds from
   // std::random_device. With a seed and num_threads = 1, the AI's moves are
   // reproducible. With more threads they aren't, since threads interleave

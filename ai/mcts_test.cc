@@ -93,6 +93,20 @@ TEST(MctsAITest, PlaysFullGameWithThreads) {
       SizeIs(Gt(40)));
 }
 
+TEST(MctsAITest, PlaysFullGameWithVirtualLoss) {
+  MctsOptions options = SmallOptions(20, /*seed=*/3, /*num_threads=*/4);
+  options.virtual_loss = 3;
+  EXPECT_THAT(PlayMctsGame(2, options), SizeIs(Gt(40)));
+}
+
+// A single thread doesn't use virtual loss, so it plays the same moves.
+TEST(MctsAITest, VirtualLossDoesNotChangeSingleThread) {
+  MctsOptions options = SmallOptions(20, /*seed=*/8);
+  const std::vector<Move> without = PlayMctsGame(2, options);
+  options.virtual_loss = 3;
+  EXPECT_THAT(PlayMctsGame(2, options), Eq(without));
+}
+
 // With a seed and a single thread, a whole game is reproducible.
 TEST(MctsAITest, SameSeedSameGame) {
   const std::vector<Move> game1 = PlayMctsGame(2, SmallOptions(10, 5));

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <list>
 #include <memory>
@@ -143,13 +144,16 @@ int main(int argc, char **argv) {
   blokus::GameRunner game(4);
   game.AddPlayer(absl::make_unique<blokus::WebPlayer>(0, &server));
 
+  // More threads than cores only slows MCTS down.
+  const int num_threads =
+      std::max(1, static_cast<int>(std::thread::hardware_concurrency()));
   blokus::MctsOptions weak_options{
     .num_iterations = 20000,
-    .num_threads = 8,
+    .num_threads = num_threads,
   };
   blokus::MctsOptions strong_options{
     .num_iterations = 200000,
-    .num_threads = 8,
+    .num_threads = num_threads,
   };
   game.AddPlayer(absl::make_unique<blokus::MctsAI>(1, weak_options));
   game.AddPlayer(absl::make_unique<blokus::MctsAI>(2, strong_options));

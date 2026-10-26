@@ -40,3 +40,21 @@ cc_binary(
     ],
     linkopts = ["-lprofiler"],
 )
+
+cc_binary(
+    name = "match",
+    srcs = ["match_main.cc"],
+    deps = [
+        "//ai:mcts",
+        "//game",
+        "//game:game_runner",
+        "//game:player",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/flags:parse",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
+    ],
+)

@@ -76,7 +76,14 @@ void ExpandNode(const Game& game, Node* node) {
 // Note that this function also includes the "expansion" phase in usual
 // MCTS terminology. A leaf node is only expanded if all siblings have been
 // visited at least once. After expansion, we return a child.
-Node* SelectNode(Node* node, Game* game, double c, std::mt19937_64& rng) {
+//
+// Adds `virtual_loss` visits, without wins, to every node on the path, so
+// that other threads selecting before this iteration's backprop are steered
+// elsewhere. Backprop takes them back out.
+Node* SelectNode(Node* node, Game* game, double c, int virtual_loss,
+                 std::mt19937_64& rng) {
+  node->visits += virtual_loss;
+
   // If a leaf node, possibly expand it and continue selection.
   if (node->children.empty()) {
     if (!ShouldExpand(*game, *node)) {
@@ -112,7 +119,8 @@ Node* SelectNode(Node* node, Game* game, double c, std::mt19937_64& rng) {
       << "SelectNode tried "
       << node->children[selected_child]->move.DebugString();
   
-  return SelectNode(node->children[selected_child].get(), game, c, rng);
+  return SelectNode(node->children[selected_child].get(), game, c,
+                    virtual_loss, rng);
 }
 
 
@@ -151,11 +159,13 @@ MctsAI::MctsAI(int player_id, const MctsOptions& options)
 MctsAI::~MctsAI() {}
 
 void MctsAI::Iteration(Game game, std::mt19937_64& rng) {
-  // Select and possibly expand a node.
+  // Select and possibly expand a node. Virtual loss only matters with
+  // concurrent iterations, so a single thread doesn't use it.
+  const int virtual_loss = options_.num_threads > 1 ? options_.virtual_loss : 0;
   Node* node = nullptr;
   {
     std::lock_guard<std::mutex> lock(tree_mutex_);
-    node = SelectNode(tree_.get(), &game, options_.c, rng);
+    node = SelectNode(tree_.get(), &game, options_.c, virtual_loss, rng);
   }
 
   // Run rollouts on the selected node.
@@ -171,7 +181,8 @@ void MctsAI::Iteration(Game game, std::mt19937_64& rng) {
     Node* update_node = node;
     CHECK(update_node->parent != nullptr);
     while (update_node != nullptr) {
-      update_node->visits++;
+      // The first rollout's visit replaces the virtual loss from selection.
+      update_node->visits += i == 0 ? 1 - virtual_loss : 1;
       if (update_node->player == winner) {
         update_node->wins++;
       }

@@ -186,6 +186,12 @@ Takes an optional seed for its `std::mt19937_64`.
   `SelectMove`. `MctsOptions::seed` seeds the AI (from `std::random_device`
   if unset). With a seed and one thread, play is reproducible. With more
   threads it isn't, because the threads interleave on the shared tree.
+  Throughput scales well up to the core count (10k iterations: 1 thread
+  2.1 s, 4 threads 0.62 s on the 4-vCPU VM), and more threads than cores is
+  slower. `MctsOptions::virtual_loss` (default 0, only used with more than
+  one thread) adds temporary losses along the selected path so threads
+  spread out. In matches at 1000 iterations it made play weaker, not
+  stronger: see "Playing strength" below.
 - **Tree reuse**: on each `SelectMove`, the AI walks the stored tree down
   through the moves made since its last turn (`game.moves()`) and keeps that
   subtree. If a move isn't in the tree (it was never expanded that far, or a
@@ -193,7 +199,18 @@ Takes an optional seed for its `std::mt19937_64`.
 - **Move choice**: the most-visited root child. If there's only one legal
   move it's played immediately.
 - `MctsOptions`: `c` (1.4), `num_iterations`, `num_rollouts_per_iteration`,
-  `num_threads`, `seed`.
+  `num_threads`, `virtual_loss`, `seed`.
+
+### Playing strength
+`main:match` results (2-player, 100 games each, A's score with 95% CI,
+single thread and `c = 1.4` unless noted, 1000 iterations per move):
+- Identical configs: 0.54 ± 0.10 (no meaningful seat bias).
+- 1000 vs 250 iterations: 0.85 ± 0.07.
+- 4 threads vs 1 thread: 0.66 ± 0.09. With virtual loss 1: 0.43 ± 0.10;
+  with 3: 0.39 ± 0.10.
+- `c = 0.7` vs 1.4: 0.62 ± 0.09. `c = 0.35` vs 1.4: 0.89 ± 0.06.
+So `c = 1.4` explores far too much at this budget. Threads piling onto the
+same leaf help because they exploit more, and virtual loss undoes that.
 
 ## Binaries (`main/`)
 
@@ -201,7 +218,8 @@ Takes an optional seed for its `std::mt19937_64`.
 Starts `HttpServer` on **port 7777**, serving the static files in
 `main/static/` by **relative path**, so run it from the repo root. Seats a
 `WebPlayer` (human, BLUE) against three `MctsAI`s (YELLOW and GREEN weak at
-20k iterations, RED strong at 200k iterations; 8 threads each).
+20k iterations, RED strong at 200k iterations), each using one thread per
+hardware thread.
 - `POST /game/<player_id>/place` (JSON `{tile, move:{coord,rotation,flip}}`,
   or `{tile:-1}` to pass): the human's move. `WebPlayer::SelectMove` polls
   until this arrives, then canonicalizes the placement.
@@ -213,12 +231,20 @@ Starts `HttpServer` on **port 7777**, serving the static files in
 MCTS-vs-MCTS games with flags `--num_games`, `--num_players`,
 `--num_mcts_iterations`, `--num_mcts_rollouts`, `--num_mcts_threads`,
 `--seed`, `--print_board`, and `--output_path` (writes a `GamesLog` proto).
-`--seed` derives a seed for each AI. Prints average scores at the end. This is meant to grow into the data
-pipeline for a "BlokusZero"-style learned policy or value function.
+`--seed` derives a seed for each AI. Prints average scores at the end. This
+is meant to grow into the data pipeline for a "BlokusZero"-style learned
+policy or value function.
+
+### `main:match`: measure playing strength
+Plays 2-player games between two MCTS configurations, A and B (flags
+`--a_iterations`, `--a_threads`, `--a_c`, `--a_virtual_loss`, and the same
+for B), swapping seats every game. Prints A's wins, ties, and losses, its
+mean score with a 95% confidence interval, the mean score margin, and each
+side's total time in `SelectMove`.
 
 ### `ai:mcts_benchmark`
-Google Benchmark for `Rollout` and `SelectMove` (10,000 iterations on 8
-threads, timed in wall time; items/sec is MCTS iterations). Links `-lprofiler`
+Google Benchmark for `Rollout` and `SelectMove` (10,000 iterations on 1, 2,
+4, and 8 threads, timed in wall time; items/sec is MCTS iterations). Links `-lprofiler`
 (gperftools) for CPU profiling; the file header has the `pprof` commands.
 
 ## Web client (`main/static/`)
@@ -270,8 +296,9 @@ safe. That's fine for a one-human local game.
 - `ai:mcts_test`: rollouts return a valid player id, the opening move is
   legal, and full games with tree reuse for 2 and 4 players and with 4
   threads finish. Also checks that the AI copes when an opponent passes while
-  it still has moves. The AIs use only 10 to 200 iterations, so these check
-  correctness, not playing strength. A seeded single-threaded game is
+  it still has moves, and that virtual loss leaves single-threaded play
+  unchanged and works with 4 threads. The AIs use only 10 to 200
+  iterations, so these check correctness, not playing strength. A seeded single-threaded game is
   checked to be reproducible.
 - `ai:random_test`: full games, passing with no moves, and reproducibility.
 - There are no tests for `HttpServer` or the JS client.
@@ -298,10 +325,8 @@ From reading the code. These haven't been reproduced by a test.
 
 - The build has many `-Wsign-compare` warnings (`int` loop indexes compared
   against `.size()`).
-- `SelectMove` with 8 threads on 4 cores takes about 3.4 s for 10,000
-  iterations (about 1 ms per rollout), roughly 1.4x the ideal 2.5 s. The
-  single `tree_mutex_` and duplicate selection of the same leaf (there's no
-  virtual loss) are the likely costs.
+- The default UCB constant `c = 1.4` is much too high (see "Playing
+  strength"). It hasn't been tuned yet.
 - `Game::MakeMove` accepts a pass even when the color still has legal moves.
   The AIs only pass when they have no moves, but a human can pass early.
 - `Rollout` returns `GameResult::winner_id`, which gives ties to the lowest

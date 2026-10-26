@@ -39,8 +39,9 @@ static void BM_SelectMove(benchmark::State& state) {
   for (auto _ : state) {
     Game game(4);
     MctsOptions options{
-        .num_iterations = state.range(0),
-        .num_threads = 8,
+        .num_iterations = static_cast<int>(state.range(0)),
+        .num_threads = static_cast<int>(state.range(1)),
+        .seed = 0,
     };
     MctsAI ai(0, options);
     ai.SelectMove(game);
@@ -48,8 +49,12 @@ static void BM_SelectMove(benchmark::State& state) {
   // Items are MCTS iterations.
   state.SetItemsProcessed(state.iterations() * state.range(0));
 }
-// The work happens in worker threads, so measure wall time.
-BENCHMARK(BM_SelectMove)->Arg(10000)->UseRealTime();
+// Args are the number of iterations and threads. The work happens in worker
+// threads, so measure wall time.
+BENCHMARK(BM_SelectMove)
+    ->ArgNames({"iterations", "threads"})
+    ->ArgsProduct({{10000}, {1, 2, 4, 8}})
+    ->UseRealTime();
 
 }  // namespace
 }  // namespace blokus

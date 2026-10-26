@@ -13,6 +13,7 @@ bazel test //game:board_test --test_output=errors
 bazel run -c opt //ai:mcts_benchmark      # perf: always use -c opt
 bazel build -c opt //main:blokus && bazel-bin/main/blokus   # run from repo root; serves on :7777
 bazel run -c opt //main:train -- --num_games=10 --num_players=2 --stderrthreshold=0
+bazel run -c opt //main:match -- --num_games=100 --a_c=0.7   # A vs B strength
 ```
 
 - Bazel comes from bazelisk, and the version is pinned in `.bazelversion`.
@@ -70,6 +71,9 @@ bazel run -c opt //main:train -- --num_games=10 --num_players=2 --stderrthreshol
   numbers. Notable improvements get added to the history table in
   `ai/mcts_benchmark.cc`. Also record results in `benchmark_history.local.md`
   (git-ignored), which tracks numbers on this VM.
+- **Back AI-strength claims with `main:match`.** Run enough games for the
+  95% CI to exclude 0.5 (100 games gives about ±0.1), and record the
+  configs and results in `ARCHITECTURE.md` under "Playing strength".
 - `Board` move generation must keep matching the brute-force
   `VerificationBoard` in `game/board_test.cc`. Keep that test passing after
   any change to `Board` or `Tile`.
