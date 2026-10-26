@@ -68,7 +68,8 @@ bazel run -c opt //main:train -- --num_games=10 --num_players=2 --stderrthreshol
   directly limits how strong MCTS can get. Before and after changing
   hot-path code, run `bazel run -c opt //ai:mcts_benchmark` and report the
   numbers. Notable improvements get added to the history table in
-  `ai/mcts_benchmark.cc`.
+  `ai/mcts_benchmark.cc`. Also record results in `benchmark_history.local.md`
+  (git-ignored), which tracks numbers on this VM.
 - `Board` move generation must keep matching the brute-force
   `VerificationBoard` in `game/board_test.cc`. Keep that test passing after
   any change to `Board` or `Tile`.

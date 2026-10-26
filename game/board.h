@@ -1,7 +1,8 @@
 #ifndef BLOKUS_GAME_BOARD_H_
 #define BLOKUS_GAME_BOARD_H_
 
-#include <map>
+#include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -37,6 +38,20 @@ class Board {
   // Returns a list of all possible moves for the given tile and color.
   std::vector<Move> PossibleMoves(const Tile& tile, Color color) const;
 
+  // Returns all possible moves for `color` with the tiles it hasn't placed on
+  // this board yet. The result is the same, in the same order, as calling
+  // PossibleMoves for each of those tiles in increasing tile order, but it is
+  // maintained incrementally by MakeMove, so it's much cheaper.
+  std::vector<Move> AllPossibleMoves(Color color) const;
+
+  // Returns AllPossibleMoves(color).size(), without building the moves.
+  int NumPossibleMoves(Color color) const {
+    return tracked_moves_[color].size();
+  }
+
+  // Returns AllPossibleMoves(color)[index], without building all the moves.
+  Move PossibleMove(Color color, int index) const;
+
   // Place a tile on the board. Returns true if the move was valid.
   // An invalid move will not change the state of the board.
   bool MakeMove(const Move& move);
@@ -49,14 +64,27 @@ class Board {
   bool IsPossible(const Slot& slot,
                   const TileOrientation& orientation,
                   const Corner& corner, Color color) const;
+
+  // Adds the moves for `color` that become possible through the slots from
+  // index `first_new_slot` onwards. `old_slot_rows` is the slot bitmap from
+  // before those slots were added.
+  void AddTrackedMoves(Color color, int first_new_slot,
+                       const uint32_t old_slot_rows[]);
+
+  // Removes the tracked moves for `color` that are no longer possible, after
+  // cells in rows [min_row, max_row] and columns [min_col, max_col] became
+  // unavailable to it. Also removes all moves with `placed_tile`, unless it is
+  // -1.
+  void RemoveTrackedMoves(Color color, int min_row, int max_row, int min_col,
+                          int max_col, int placed_tile);
   
   Color pieces_[kNumRows][kNumCols];
 
   // Bitwise representation of the rows in the board, one for each color.
   // Column 0 corresponds to the least significant bit in each uint32_t.
   // A "1" means that the (row, col) is available for a piece, while a "0" means
-  // that it is occupied.
-  std::vector<std::vector<uint32_t>> available_;
+  // that it is occupied. Indexed by color, then row.
+  std::array<std::array<uint32_t, kNumRows>, 5> available_ = {};
 
   // Information about a "slot" on the board.
   // A slot represents a possible place that a piece corner could go, basically
@@ -80,12 +108,40 @@ class Board {
       possible_tiles &= ~(1 << tile.index());
     }
   };
-  std::vector<std::vector<SlotInfo>> slots_;
+  // Indexed by color.
+  std::array<std::vector<SlotInfo>, 5> slots_;
 
-  // A map from a position on the board, represented by a flat integer,
-  // to whether or not a slot exists at that position. Used to dedup multiple
-  // slots on the same position.
-  std::vector<std::vector<bool>> slot_map_;
+  // Bitwise representation of where each color has a slot, in the same
+  // layout as available_. Used to dedup multiple slots on the same position.
+  uint32_t slot_rows_[5][kNumRows];
+
+  // A possible move, tracked incrementally. `row` and `col` are the board
+  // position of the upper-left corner of the orientation's bounding box, and
+  // `last_row` and `last_col` of its lower-right corner.
+  struct TrackedMove {
+    // The cells of the orientation, 5 bits per row of its bounding box, with
+    // the same layout as TileOrientation::rows().
+    uint32_t cells;
+    uint8_t tile;
+    uint8_t orientation;  // Index into Tile::orientations().
+    int8_t row;
+    int8_t col;
+    int8_t last_row;
+    int8_t last_col;
+  };
+
+  // Converts a tracked move for `color` to a Move.
+  static Move ToMove(Color color, const TrackedMove& tracked);
+  // Returns the tracked move for placing `tile` at `candidate` on `slot`.
+  static TrackedMove MakeTrackedMove(int tile,
+                                     const Tile::CornerPlacement& candidate,
+                                     const Coord& slot);
+
+  // For each color, all possible moves with tiles it hasn't placed. Within a
+  // tile, the moves are in the order PossibleMoves would return them.
+  std::vector<TrackedMove> tracked_moves_[5];
+  // For each color, a bit per tile it has placed.
+  uint32_t placed_tiles_[5] = {0, 0, 0, 0, 0};
 };
 
 inline bool operator==(const Move& lhs, const Move& rhs) {

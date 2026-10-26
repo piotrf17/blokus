@@ -279,6 +279,7 @@ void TileOrientation::ComputeSlices() {
     CHECK_LT(coord.col(), 5);
 
     rows_[coord.row()] |= 1 << coord.col();
+    packed_rows_ |= 1u << (5 * coord.row() + coord.col());
 
     num_rows_ = std::max(num_rows_, int(coord.row()) + 1);
     num_cols_ = std::max(num_cols_, int(coord.col()) + 1);
@@ -298,6 +299,7 @@ Tile::Tile(int index, std::vector<std::vector<bool>> blocks)
   CHECK_EQ(5, blocks_.size());
   ComputeTransformations();
   ComputeOrientations();
+  ComputeCornerPlacements();
 }
 
 Placement Tile::Canonicalize(Placement placement) const {
@@ -386,6 +388,33 @@ void Tile::ComputeOrientations() {
         orientations_.push_back(
             TileOrientation(rotation, flip, std::move(coords),
                             Coord(-min_x, -min_y)));
+      }
+    }
+  }
+}
+
+void Tile::ComputeCornerPlacements() {
+  for (int type = Slot::NORTH; type <= Slot::SW; ++type) {
+    const Slot slot{Coord(0, 0), static_cast<Slot::Type>(type)};
+    const SlotWindow window = GetSlotWindow(slot.type);
+    for (int o = 0; o < static_cast<int>(orientations_.size()); ++o) {
+      const TileOrientation& orientation = orientations_[o];
+      for (const Corner& corner : orientation.corners()) {
+        if (!CornerFitsSlot(corner, slot)) continue;
+        uint64_t mask = 0;
+        for (const Coord& coord : orientation.coords()) {
+          const int row = coord.row() - corner.c.row() - window.row;
+          const int col = coord.col() - corner.c.col() - window.col;
+          CHECK(row >= 0 && row < 8 && col >= 0 && col < 8)
+              << "Tile " << index_ << " doesn't fit the slot window";
+          mask |= uint64_t{1} << (row * 8 + col);
+        }
+        const Placement placement{
+            Coord(orientation.offset().row() - corner.c.row(),
+                  orientation.offset().col() - corner.c.col()),
+            orientation.rotation(), orientation.flip()};
+        corner_placements_[type].push_back(
+            CornerPlacement{placement, o, mask});
       }
     }
   }

@@ -5,10 +5,9 @@
 //   $ bazel build -c opt ai:mcts_benchmark
 //   $ env CPUPROFILE=/tmp/mcts_benchmark.prof bazel-bin/ai/mcts_benchmark
 //   $ pprof -http=":8000" bazel-bin/ai/mcts_benchmark /tmp/mcts_benchmark.prof
-#include "ai/mcts.h"
-
 #include <random>
 
+#include "ai/mcts.h"
 #include "benchmark/benchmark.h"
 
 namespace blokus {
@@ -25,6 +24,7 @@ namespace {
 // BM_Rollout    2510316 ns      2510315 ns          276  (opt CornerFitsSlot)
 // BM_Rollout    2072928 ns      2071352 ns          334  (remove hashmap)
 // BM_Rollout     932193 ns       932172 ns          728  (possible tile cache)
+// BM_Rollout     176952 ns       176832 ns        79416  (incremental moves)
 
 static void BM_Rollout(benchmark::State& state) {
   std::mt19937_64 rng(0);
@@ -39,8 +39,8 @@ static void BM_SelectMove(benchmark::State& state) {
   for (auto _ : state) {
     Game game(4);
     MctsOptions options{
-      .num_iterations = state.range(0),
-      .num_threads = 8,
+        .num_iterations = state.range(0),
+        .num_threads = 8,
     };
     MctsAI ai(0, options);
     ai.SelectMove(game);

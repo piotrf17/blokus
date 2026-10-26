@@ -1,7 +1,9 @@
 #include "game/board.h"
 
+#include <algorithm>
 #include <cstring>
 
+#include "absl/log/check.h"
 #include "absl/log/log.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -46,6 +48,25 @@ int PlacementHash(const Placement& p) {
 constexpr int kNumPlacementHashes =
     RC(Board::kNumRows - 1, Board::kNumCols - 1) * 8 + 3 * 2 + 1 + 1;
 
+// Returns the squares of `slot`'s SlotWindow that are set in `board_rows` (in
+// the layout of Board::available_), as a bitmap like
+// Tile::CornerPlacement::mask. Squares off the board are unset.
+uint64_t WindowAround(const Slot& slot, const uint32_t board_rows[]) {
+  constexpr uint32_t kRowMask = (1u << Board::kNumCols) - 1;
+  const SlotWindow window = GetSlotWindow(slot.type);
+  const int col = slot.c.col() + window.col;
+  uint64_t bits = 0;
+  for (int i = 0; i < 8; ++i) {
+    const int row = slot.c.row() + window.row + i;
+    if (row < 0 || row >= Board::kNumRows) continue;
+    const uint32_t board_row = board_rows[row] & kRowMask;
+    const uint32_t window_row =
+        col >= 0 ? board_row >> col : board_row << -col;
+    bits |= uint64_t{window_row & 0xff} << (i * 8);
+  }
+  return bits;
+}
+
 }  // namespace
 
 Move Move::EmptyMove(Color color) {
@@ -74,27 +95,22 @@ Board::Board() {
 
   // Initially, you can only move in a corner. Place in turn order,
   // going clockwise from top-left (0,0).
-  slots_.resize(5);
-  slot_map_.resize(5);
   slots_[BLUE].emplace_back(Slot{Coord(0, 0), Slot::SE});
-  slot_map_[BLUE] = std::vector<bool>(kNumRows * kNumCols, false);
-  slot_map_[BLUE][RC(0, 0)] = true;
   slots_[YELLOW].emplace_back(Slot{Coord(0, kNumCols - 1), Slot::SW});
-  slot_map_[YELLOW] = std::vector<bool>(kNumRows * kNumCols, false);
-  slot_map_[YELLOW][RC(0, kNumCols -1)] = true;
   slots_[RED].emplace_back(Slot{Coord(kNumRows - 1, kNumCols - 1), Slot::NW});
-  slot_map_[RED] = std::vector<bool>(kNumRows * kNumCols, false);
-  slot_map_[RED][RC(kNumRows - 1, kNumCols - 1)] = true;
   slots_[GREEN].emplace_back(Slot{Coord(kNumRows - 1, 0), Slot::NE});
-  slot_map_[GREEN] = std::vector<bool>(kNumRows * kNumCols, false);
-  slot_map_[GREEN][RC(kNumRows - 1, 0)] = true;
+  std::memset(slot_rows_, 0, sizeof slot_rows_);
 
   // Initially, everyone is allowed to move everywhere.
-  available_.resize(5);
   for (auto color : {BLUE, YELLOW, RED, GREEN}) {
-    for (int row = 0; row < kNumRows; ++row) {
-      available_[color].push_back(0xFFFFFFFF);
-    }
+    available_[color].fill(0xFFFFFFFF);
+  }
+
+  // Track the opening moves, then mark the starting slots.
+  for (auto color : {BLUE, YELLOW, RED, GREEN}) {
+    AddTrackedMoves(color, 0, slot_rows_[color]);
+    const Coord& c = slots_[color][0].slot.c;
+    slot_rows_[color][c.row()] |= 1u << c.col();
   }
 }
 
@@ -208,6 +224,9 @@ bool Board::MakeMove(const Move& move) {
 
   // Update slots based on the move.
   const TileOrientation& orientation = OrientationForMove(move);
+  const int first_new_slot = slots_[move.color].size();
+  uint32_t old_slot_rows[kNumRows];
+  std::memcpy(old_slot_rows, slot_rows_[move.color], sizeof old_slot_rows);
   for (Slot slot : orientation.slots()) {
     slot.c[0] += move.placement.coord[0] - orientation.offset()[0];
     slot.c[1] += move.placement.coord[1] - orientation.offset()[1];
@@ -215,10 +234,10 @@ bool Board::MakeMove(const Move& move) {
         slot.c.col() < 0 || slot.c.col() >= kNumCols) {
       continue;
     }
-    const int rc = RC(slot.c.row(), slot.c.col());
-    if (!slot_map_[move.color][rc]) {
+    const uint32_t bit = 1u << slot.c.col();
+    if (!(slot_rows_[move.color][slot.c.row()] & bit)) {
       slots_[move.color].emplace_back(slot);
-      slot_map_[move.color][rc] = true;
+      slot_rows_[move.color][slot.c.row()] |= bit;
     }
   }
 
@@ -252,7 +271,143 @@ bool Board::MakeMove(const Move& move) {
     available_[move.color][board_row] &= ~slice;
   }
 
+  // Update the tracked moves. Other colors lose the moves overlapping the
+  // tile. The move color loses all moves with this tile and the moves
+  // overlapping or next to it, and gains moves through its new slots.
+  const int end_row = start_row + orientation.num_rows() - 1;
+  const int end_col = start_col + orientation.num_cols() - 1;
+  for (auto color : {BLUE, YELLOW, RED, GREEN}) {
+    if (color == move.color) continue;
+    RemoveTrackedMoves(color, start_row, end_row, start_col, end_col,
+                       /*placed_tile=*/-1);
+  }
+  placed_tiles_[move.color] |= 1u << move.tile;
+  RemoveTrackedMoves(move.color, start_row - 1, end_row + 1, start_col - 1,
+                     end_col + 1, move.tile);
+  AddTrackedMoves(move.color, first_new_slot, old_slot_rows);
+
   return true;
+}
+
+std::vector<Move> Board::AllPossibleMoves(Color color) const {
+  // Group the moves by tile, keeping their order within each tile.
+  int tile_start[kNumTiles + 1] = {};
+  for (const TrackedMove& tracked : tracked_moves_[color]) {
+    ++tile_start[tracked.tile + 1];
+  }
+  for (int tile = 0; tile < kNumTiles; ++tile) {
+    tile_start[tile + 1] += tile_start[tile];
+  }
+
+  std::vector<Move> moves(tracked_moves_[color].size());
+  for (const TrackedMove& tracked : tracked_moves_[color]) {
+    moves[tile_start[tracked.tile]++] = ToMove(color, tracked);
+  }
+  return moves;
+}
+
+Move Board::PossibleMove(Color color, int index) const {
+  CHECK_GE(index, 0);
+  CHECK_LT(index, NumPossibleMoves(color));
+  // Find the tile of the move at `index`, then its position among the moves
+  // with that tile.
+  int tile_count[kNumTiles] = {};
+  for (const TrackedMove& tracked : tracked_moves_[color]) {
+    ++tile_count[tracked.tile];
+  }
+  int tile = 0;
+  while (index >= tile_count[tile]) {
+    index -= tile_count[tile];
+    ++tile;
+  }
+  for (const TrackedMove& tracked : tracked_moves_[color]) {
+    if (tracked.tile == tile && index-- == 0) return ToMove(color, tracked);
+  }
+  LOG(FATAL) << "No possible move at index " << index;
+}
+
+Move Board::ToMove(Color color, const TrackedMove& tracked) {
+  const TileOrientation& orientation =
+      kTiles[tracked.tile].orientations()[tracked.orientation];
+  Move move;
+  move.color = color;
+  move.tile = tracked.tile;
+  move.placement.coord = Coord(tracked.row + orientation.offset().row(),
+                               tracked.col + orientation.offset().col());
+  move.placement.rotation = orientation.rotation();
+  move.placement.flip = orientation.flip();
+  return move;
+}
+
+void Board::AddTrackedMoves(Color color, int first_new_slot,
+                            const uint32_t old_slot_rows[]) {
+  // A move through a new slot that also covers an older slot was already
+  // possible before, so it's already tracked. `seen_slot_rows` holds the
+  // older slots, plus the new slots we've already gone through.
+  uint32_t seen_slot_rows[kNumRows];
+  std::memcpy(seen_slot_rows, old_slot_rows, sizeof seen_slot_rows);
+
+  std::vector<TrackedMove>& tracked_moves = tracked_moves_[color];
+  for (int i = first_new_slot; i < static_cast<int>(slots_[color].size());
+       ++i) {
+    const Slot& slot = slots_[color][i].slot;
+    // No move can cover a slot that is already unavailable.
+    if (!(available_[color][slot.c.row()] & (1u << slot.c.col()))) continue;
+    // A placement is possible if all its squares are available. The window
+    // has no squares off the board, so that also checks the bounds.
+    const uint64_t available = WindowAround(slot, available_[color].data());
+    const uint64_t seen = WindowAround(slot, seen_slot_rows);
+    for (int tile = 0; tile < kNumTiles; ++tile) {
+      if (placed_tiles_[color] & (1u << tile)) continue;
+      for (const Tile::CornerPlacement& candidate :
+           kTiles[tile].CornerPlacements(slot.type)) {
+        if ((candidate.mask & ~available) || (candidate.mask & seen)) continue;
+        tracked_moves.push_back(MakeTrackedMove(tile, candidate, slot.c));
+      }
+    }
+    seen_slot_rows[slot.c.row()] |= 1u << slot.c.col();
+  }
+}
+
+Board::TrackedMove Board::MakeTrackedMove(
+    int tile, const Tile::CornerPlacement& candidate, const Coord& slot) {
+  const TileOrientation& orientation =
+      kTiles[tile].orientations()[candidate.orientation];
+  const int row =
+      slot.row() + candidate.placement.coord.row() - orientation.offset().row();
+  const int col =
+      slot.col() + candidate.placement.coord.col() - orientation.offset().col();
+  return TrackedMove{orientation.packed_rows(),
+                     static_cast<uint8_t>(tile),
+                     static_cast<uint8_t>(candidate.orientation),
+                     static_cast<int8_t>(row),
+                     static_cast<int8_t>(col),
+                     static_cast<int8_t>(row + orientation.num_rows() - 1),
+                     static_cast<int8_t>(col + orientation.num_cols() - 1)};
+}
+
+void Board::RemoveTrackedMoves(Color color, int min_row, int max_row,
+                               int min_col, int max_col, int placed_tile) {
+  const std::array<uint32_t, kNumRows>& available = available_[color];
+  auto is_gone = [&](const TrackedMove& tracked) {
+    if (tracked.tile == placed_tile) return true;
+    // Moves outside the changed area are unaffected.
+    if (tracked.row > max_row || tracked.last_row < min_row ||
+        tracked.col > max_col || tracked.last_col < min_col) {
+      return false;
+    }
+    uint32_t cells = tracked.cells;
+    for (int row = tracked.row; row <= tracked.last_row; ++row) {
+      const uint32_t slice = (cells & 0x1f) << tracked.col;
+      if ((slice & available[row]) != slice) return true;
+      cells >>= 5;
+    }
+    return false;
+  };
+  std::vector<TrackedMove>& tracked_moves = tracked_moves_[color];
+  tracked_moves.erase(
+      std::remove_if(tracked_moves.begin(), tracked_moves.end(), is_gone),
+      tracked_moves.end());
 }
 
 void Board::Print(bool debug) const {

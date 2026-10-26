@@ -69,6 +69,12 @@ Everything is in `namespace blokus`.
     fast overlap checks.
 - `CornerFitsSlot`: a lookup table saying which corner types fit which slot
   types.
+- `SlotWindow` / `Tile::CornerPlacements(slot_type)`: every tile placed with
+  a corner on a slot stays inside an 8x8 window around the slot, whose
+  position depends only on the slot type. For each slot type, a tile
+  precomputes every (orientation, fitting corner) as a placement relative to
+  the slot plus a 64-bit mask of the squares it covers in that window.
+  `TileOrientation::packed_rows()` holds the row bitmaps 5 bits per row.
 - `Tile::Canonicalize(placement)`: maps any (rotation, flip) to the matching
   canonical `TileOrientation` and adjusts the coord to match. The web UI
   needs this because it can send non-canonical orientations.
@@ -80,9 +86,9 @@ Everything is in `namespace blokus`.
   - `pieces_[r][c]`: the color occupying each cell.
   - `available_[color][row]`: a `uint32_t` bitmask per row. A 1 bit means the
     cell is free *and* not edge-adjacent to that color's own pieces.
-  - `slots_[color]`: every slot that color has ever had, deduplicated by
-    `slot_map_`. Slots are never removed. Occupancy is checked through
-    `available_` instead.
+  - `slots_[color]`: every slot that color has ever had, deduplicated by the
+    `slot_rows_` bitmap. Slots are never removed. Occupancy is checked
+    through `available_` instead.
   - `SlotInfo::possible_tiles`: a per-slot bitmask cache of tiles that might
     still fit there. A tile that doesn't fit at a slot can never fit there
     later, so `PossibleMoves` clears bits as it finds failures. The field is
@@ -96,12 +102,31 @@ Everything is in `namespace blokus`.
 - `MakeMove` validates the move, writes `pieces_`, adds the new slots, and
   clears bits in `available_`: just the tile cells for other colors, and the
   tile plus its orthogonal neighbors for the moving color.
+- **Incremental move tracking** (`AllPossibleMoves(color)`,
+  `NumPossibleMoves`, `PossibleMove(color, i)`): `tracked_moves_[color]` holds
+  every possible move for the tiles that color hasn't placed, as compact
+  `TrackedMove`s. It relies on two facts: `available_` only loses cells, and
+  slots are only added. So after each `MakeMove`:
+  - every color drops the tracked moves that now overlap unavailable cells
+    (only moves whose bounding box meets the changed area are rechecked), and
+    the moving color drops all moves with the placed tile;
+  - the moving color adds the moves through its new slots: each of a tile's
+    `CornerPlacements` for the slot type is possible if its mask is inside
+    the slot's window of `available_` (one AND; squares off the board are
+    never in the window). A move that also covers an older slot was already
+    possible, so it's skipped, which keeps the list free of duplicates
+    without a hash set.
+  The result is identical, in the same order, to calling `PossibleMoves` for
+  each remaining tile, which `board_test` checks over full games.
+  `Game::PossibleMoves` and `Rollout` use it. `PossibleMoves(tile, color)`
+  still computes from scratch.
 - `IsPossible(Move)` expects a canonical (rotation, flip). It looks up the
   orientation with `OrientationForMove` and `LOG(FATAL)`s if none matches.
 
 The benchmark history in `ai/mcts_benchmark.cc` records how this design came
 about: full-board scan → slots/corners → bitmaps → per-slot tile cache, about
-a 120x speedup on random rollouts.
+a 120x speedup on random rollouts. Incremental move tracking then gave
+about another 5x.
 
 ### `game.h`: rules beyond geometry
 `Game` holds a `Board` and adds: the current color and player, which tiles
@@ -148,7 +173,9 @@ Takes an optional seed for its `std::mt19937_64`.
   least as many visits as it has children. If there are no legal moves, the
   node gets a single pass child.
 - **Rollout** (`Rollout`): uniformly random moves for every color until the
-  game ends. Returns the winning player id; the score margin isn't used.
+  game ends. It picks an index with `Game::NumPossibleMoves` and fetches only
+  that move with `Game::PossibleMove`, instead of building the full list.
+  Returns the winning player id; the score margin isn't used.
 - **Backprop**: walk up to the root and increment `visits`, plus `wins` on
   nodes whose `player` won. Because `player` is a player id rather than a
   color, this works for 2-player games where one player has two colors.

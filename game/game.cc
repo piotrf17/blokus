@@ -1,34 +1,40 @@
 #include "game/game.h"
 
-#include <set>
+#include <array>
 
 #include "absl/log/check.h"
 
 namespace blokus {
 
+namespace {
+
+constexpr uint32_t kAllTiles = (1u << kNumTiles) - 1;
+
+uint32_t ColorBit(Color color) { return 1u << color; }
+
+}  // namespace
+
 Game::Game(int num_players) : num_players_(num_players) {
   CHECK(num_players_ == 2 || num_players_ == 4);
-  player_tiles_[BLUE] = std::vector<bool>(kNumTiles, true);
-  player_tiles_[YELLOW] = std::vector<bool>(kNumTiles, true);
-  player_tiles_[RED] = std::vector<bool>(kNumTiles, true);
-  player_tiles_[GREEN] = std::vector<bool>(kNumTiles, true);
-  players_with_moves_ = {BLUE, YELLOW, RED, GREEN};
+  unplayed_tiles_ = {0, kAllTiles, kAllTiles, kAllTiles, kAllTiles};
+  colors_with_moves_ =
+      ColorBit(BLUE) | ColorBit(YELLOW) | ColorBit(RED) | ColorBit(GREEN);
 }
 
 bool Game::MakeMove(const Move& move) {
   if (move.color != current_color_) return false;
   if (move.tile == -1) {
-    players_with_moves_.erase(move.color);
+    colors_with_moves_ &= ~ColorBit(move.color);
   } else {
     // Once you pass, you can't keep playing.
-    if (players_with_moves_.count(move.color) == 0) {
+    if (!(colors_with_moves_ & ColorBit(move.color))) {
       // TODO(piotrf): re-enable vlog once absl supports it
       //  VLOG(1) << ColorToString(move.color) << " already passed";
       return false;
     }
     
     // Ensure that this tile is still available.
-    if (!player_tiles_[current_color_][move.tile]) {
+    if (!(unplayed_tiles_[current_color_] & (1u << move.tile))) {
       // TODO(piotrf): re-enable vlog once absl supports it
       //  VLOG(1) << ColorToString(move.color) << " played an already played tile";
       return false;
@@ -42,12 +48,12 @@ bool Game::MakeMove(const Move& move) {
     }
 
     // If we succeeded, mark the tile as used.
-    player_tiles_[current_color_][move.tile] = false;
+    unplayed_tiles_[current_color_] &= ~(1u << move.tile);
 
     if (move.tile == 0) {
-      played_one_last_.insert(move.color);
+      played_one_last_ |= ColorBit(move.color);
     } else {
-      played_one_last_.erase(move.color);
+      played_one_last_ &= ~ColorBit(move.color);
     }
   }
 
@@ -59,35 +65,40 @@ bool Game::MakeMove(const Move& move) {
 }
 
 std::vector<Move> Game::PossibleMoves() const {
-  std::vector<Move> moves;
   // Once a color passes, it can only pass.
-  if (players_with_moves_.count(current_color_) == 0) return moves;
-  for (int tile = 0; tile < kNumTiles; ++tile) {
-    if (!player_tiles_.at(current_color_)[tile]) continue;
-    std::vector<Move> tile_moves = board_.PossibleMoves(
-        kTiles[tile], current_color_);
-    moves.insert(moves.end(), tile_moves.begin(), tile_moves.end());
-  }
-  return moves;
+  if (!(colors_with_moves_ & ColorBit(current_color_))) return {};
+  // The board leaves out the tiles this color has played.
+  return board_.AllPossibleMoves(current_color_);
+}
+
+int Game::NumPossibleMoves() const {
+  if (!(colors_with_moves_ & ColorBit(current_color_))) return 0;
+  return board_.NumPossibleMoves(current_color_);
+}
+
+Move Game::PossibleMove(int index) const {
+  CHECK_GE(index, 0);
+  CHECK_LT(index, NumPossibleMoves());
+  return board_.PossibleMove(current_color_, index);
 }
 
 bool Game::Finished() const {
-  return players_with_moves_.empty();
+  return colors_with_moves_ == 0;
 }
 
 GameResult Game::Result() const {
   // Score each color.
-  std::map<Color, int> color_to_score;
+  std::array<int, 5> color_to_score = {};
   for (Color color : {BLUE, YELLOW, RED, GREEN}) {
     // Compute the score.
     int score = 0;
-    for (int tile = 0; tile < 21; ++tile) {
-      if (player_tiles_.at(color)[tile]) {
+    for (int tile = 0; tile < kNumTiles; ++tile) {
+      if (unplayed_tiles_[color] & (1u << tile)) {
         score -= kTiles[tile].Size();
       }
     }
     if (score == 0) {
-      if (played_one_last_.count(color)) score = 20;
+      if (played_one_last_ & ColorBit(color)) score = 20;
       else score = 15;
     }
     color_to_score[color] = score;

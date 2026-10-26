@@ -1,8 +1,8 @@
 #ifndef BLOKUS_GAME_GAME_H_
 #define BLOKUS_GAME_GAME_H_
 
-#include <map>
-#include <set>
+#include <array>
+#include <cstdint>
 #include <vector>
 
 #include "game/board.h"
@@ -36,6 +36,12 @@ class Game {
   // has already passed.
   std::vector<Move> PossibleMoves() const;
 
+  // Returns PossibleMoves().size(), without building the moves.
+  int NumPossibleMoves() const;
+
+  // Returns PossibleMoves()[index], without building all the moves.
+  Move PossibleMove(int index) const;
+
   // Returns true if the game is finished.
   bool Finished() const;
 
@@ -60,12 +66,13 @@ class Game {
   Board board_;
   // List of all played moves.
   std::vector<Move> moves_;
-  // Map from color to a bool per tile. True means the tile hasn't been played.
-  std::map<Color, std::vector<bool>> player_tiles_;
-  // Set of all players who have not yet passed.
-  std::set<Color> players_with_moves_;
-  // Set of players who played the '1' tile as their last move.
-  std::set<Color> played_one_last_;
+  // Indexed by color, a bit per tile. A set bit (1 << tile) means the tile
+  // hasn't been played.
+  std::array<uint32_t, 5> unplayed_tiles_;
+  // A bit (1 << color) for each color that has not yet passed.
+  uint32_t colors_with_moves_;
+  // A bit (1 << color) for each color whose last tile played was the '1' tile.
+  uint32_t played_one_last_ = 0;
 };
 
 }  // namespace blokus

@@ -130,11 +130,11 @@ std::string Node::DebugString() const {
 
 int Rollout(Game game, std::mt19937_64& rng) {
   while (!game.Finished()) {
-    std::vector<Move> possible_moves = game.PossibleMoves();
+    const int num_moves = game.NumPossibleMoves();
     Move move = Move::EmptyMove(game.current_color());
-    if (!possible_moves.empty()) {
-      std::uniform_int_distribution<int> pick(0, possible_moves.size() - 1);
-      move = possible_moves[pick(rng)];
+    if (num_moves > 0) {
+      std::uniform_int_distribution<int> pick(0, num_moves - 1);
+      move = game.PossibleMove(pick(rng));
     }
     CHECK(game.MakeMove(move));
   }

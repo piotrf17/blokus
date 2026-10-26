@@ -74,6 +74,29 @@ inline bool CornerFitsSlot(const Corner& corner, const Slot& slot) {
   return fit_map[corner.type][slot.type];
 }
 
+// An 8x8 region of the board around a slot, which contains every square a
+// tile can cover when one of its corners is placed on a slot of that type.
+// `row` and `col` give the window's upper-left square relative to the slot.
+struct SlotWindow {
+  int row;
+  int col;
+};
+
+inline SlotWindow GetSlotWindow(Slot::Type type) {
+  static constexpr SlotWindow kWindows[9] = {
+      {0, 0},    // INVALID
+      {-4, -3},  // NORTH
+      {-3, -4},  // WEST
+      {-3, 0},   // EAST
+      {0, -3},   // SOUTH
+      {-3, -3},  // SE
+      {-4, -3},  // NE
+      {-4, -4},  // NW
+      {-3, -4},  // SW
+  };
+  return kWindows[type];
+}
+
 
 // A predetermined orientation of a tile.
 // Each orientation corresponds to a physically different placement of a tile.
@@ -113,6 +136,10 @@ class TileOrientation {
   //   0b11
   absl::Span<const uint32_t> rows() const { return rows_; }
 
+  // The rows() packed into one integer, 5 bits per row: row r is in bits
+  // 5 * r to 5 * r + 4.
+  uint32_t packed_rows() const { return packed_rows_; }
+
   // Like the above, but padded by one block in all adjacent directions.
   // For the example above, this will be:
   //
@@ -139,6 +166,7 @@ class TileOrientation {
   int num_rows_ = 0;
   int num_cols_ = 0;
   std::vector<uint32_t> rows_;
+  uint32_t packed_rows_ = 0;
   std::vector<uint32_t> expanded_rows_;
 };
 
@@ -185,15 +213,36 @@ class Tile {
   }
 
   Placement Canonicalize(Placement placement) const;
-  
+
+  // One way to place this tile with one of its corners on a slot.
+  struct CornerPlacement {
+    // The placement, with the coordinate relative to the slot.
+    Placement placement;
+    // Index of the placement's orientation in orientations().
+    int orientation;
+    // The squares the tile covers, as a bitmap over the slot's SlotWindow.
+    // Square (row, col) of the window is bit row * 8 + col.
+    uint64_t mask;
+  };
+
+  // Returns a placement for every corner, over all orientations, that fits a
+  // slot of the given type (see CornerFitsSlot), ordered by orientation and
+  // then by corner.
+  absl::Span<const CornerPlacement> CornerPlacements(Slot::Type type) const {
+    return corner_placements_[type];
+  }
+
  private:
   void ComputeTransformations();
   void ComputeOrientations();
-  
+  void ComputeCornerPlacements();
+
   int index_;
   std::vector<std::vector<bool>> blocks_;
   std::vector<Coord> transforms_[4][2];
   std::vector<TileOrientation> orientations_;
+  // Indexed by Slot::Type.
+  std::vector<CornerPlacement> corner_placements_[9];
 };
 
 // TODO(piotrf): would be useful to have easier indexing into tiles of

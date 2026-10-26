@@ -229,6 +229,24 @@ TEST(GameTest, NoPossibleMovesAfterPassing) {
   // BLUE still has legal placements, but it already passed.
   EXPECT_THAT(game.current_color(), Eq(BLUE));
   EXPECT_THAT(game.PossibleMoves(), IsEmpty());
+  EXPECT_THAT(game.NumPossibleMoves(), Eq(0));
+}
+
+TEST(GameTest, PossibleMoveMatchesPossibleMoves) {
+  Game game(4);
+  ASSERT_TRUE(game.MakeMove(Move::EmptyMove(BLUE)));
+  ASSERT_TRUE(game.MakeMove(MakeTestMove(YELLOW, 0, 0, 19)));
+  // Play the first possible move each turn, so BLUE stays passed.
+  while (!game.Finished()) {
+    const std::vector<Move> moves = game.PossibleMoves();
+    ASSERT_THAT(game.NumPossibleMoves(), Eq(static_cast<int>(moves.size())));
+    for (int i = 0; i < static_cast<int>(moves.size()); ++i) {
+      ASSERT_THAT(game.PossibleMove(i), Eq(moves[i])) << i;
+    }
+    ASSERT_TRUE(game.MakeMove(moves.empty()
+                                  ? Move::EmptyMove(game.current_color())
+                                  : moves.front()));
+  }
 }
 
 TEST(GameTest, FinishedOnceEveryColorPasses) {

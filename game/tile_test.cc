@@ -1,8 +1,10 @@
 #include "game/tile.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <map>
 #include <set>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -327,6 +329,16 @@ TEST(TileTest, OrientationCoordsAreNormalizedTransforms) {
   }
 }
 
+TEST(TileTest, PackedRowsMatchRows) {
+  for (int t = 0; t < kNumTiles; ++t) {
+    for (const TileOrientation& o : kTiles[t].orientations()) {
+      uint32_t packed = 0;
+      for (int r = 0; r < o.num_rows(); ++r) packed |= o.rows()[r] << (5 * r);
+      EXPECT_THAT(o.packed_rows(), Eq(packed)) << "tile " << t;
+    }
+  }
+}
+
 TEST(TileTest, RowBitmapsMatchCoords) {
   for (int t = 0; t < kNumTiles; ++t) {
     for (const TileOrientation& o : kTiles[t].orientations()) {
@@ -534,6 +546,82 @@ TEST(TileTest, CanonicalizePreservesPlacedCells) {
         // Canonicalizing is idempotent.
         EXPECT_TRUE(tile.Canonicalize(canonical) == canonical);
       }
+    }
+  }
+}
+
+TEST(TileTest, CornerPlacements_1x1) {
+  // The 1x1 tile's single corner fits every slot type, covering just the
+  // slot's own square.
+  for (int type = Slot::NORTH; type <= Slot::SW; ++type) {
+    const auto placements =
+        kTiles[0].CornerPlacements(static_cast<Slot::Type>(type));
+    ASSERT_THAT(placements, SizeIs(1));
+    EXPECT_TRUE(placements[0].placement == (Placement{Coord(0, 0), 0, false}));
+    const SlotWindow window = GetSlotWindow(static_cast<Slot::Type>(type));
+    EXPECT_THAT(placements[0].mask,
+                Eq(uint64_t{1} << (-window.row * 8 - window.col)));
+  }
+}
+
+TEST(TileTest, CornerPlacements_2x1) {
+  // A SE slot takes the WEST corner of the horizontal 2x1 and the NORTH
+  // corner of the vertical one. The SE window starts 3 rows up and 3 columns
+  // left of the slot, so the slot itself is window square (3, 3), bit 27.
+  const auto placements = kTiles[1].CornerPlacements(Slot::SE);
+  ASSERT_THAT(placements, SizeIs(2));
+  EXPECT_TRUE(placements[0].placement == (Placement{Coord(0, 0), 0, false}));
+  EXPECT_THAT(placements[0].mask,
+              Eq((uint64_t{1} << 27) | (uint64_t{1} << 28)));
+  // Rotation 1 goes up from the origin, so the origin is one row down.
+  EXPECT_TRUE(placements[1].placement == (Placement{Coord(1, 0), 1, false}));
+  EXPECT_THAT(placements[1].mask,
+              Eq((uint64_t{1} << 27) | (uint64_t{1} << 35)));
+}
+
+TEST(TileTest, CornerPlacementsMatchBruteForce) {
+  for (int t = 0; t < kNumTiles; ++t) {
+    const Tile& tile = kTiles[t];
+    for (int type = Slot::NORTH; type <= Slot::SW; ++type) {
+      SCOPED_TRACE(testing::Message() << "tile " << t << " slot " << type);
+      const Slot slot{Coord(0, 0), static_cast<Slot::Type>(type)};
+      const SlotWindow window = GetSlotWindow(slot.type);
+
+      // One placement per (orientation, corner) pair that fits the slot.
+      int num_fitting = 0;
+      for (const TileOrientation& o : tile.orientations()) {
+        for (const Corner& corner : o.corners()) {
+          if (CornerFitsSlot(corner, slot)) ++num_fitting;
+        }
+      }
+      const auto placements = tile.CornerPlacements(slot.type);
+      ASSERT_THAT(placements, SizeIs(num_fitting));
+
+      std::set<std::tuple<int, int, int, bool>> distinct;
+      for (const Tile::CornerPlacement& p : placements) {
+        distinct.insert({p.placement.coord.row(), p.placement.coord.col(),
+                         p.placement.rotation, p.placement.flip});
+        const TileOrientation& o = tile.orientations()[p.orientation];
+        EXPECT_THAT(o.rotation(), Eq(p.placement.rotation));
+        EXPECT_THAT(o.flip(), Eq(p.placement.flip));
+
+        // The placed tile covers the slot, and the mask matches its squares.
+        const CellSet cells =
+            ToCellSet(tile.Transform(p.placement.rotation, p.placement.flip),
+                      p.placement.coord.row(), p.placement.coord.col());
+        EXPECT_TRUE(Contains(cells, 0, 0));
+        uint64_t mask = 0;
+        for (const auto& [row, col] : cells) {
+          const int window_row = row - window.row;
+          const int window_col = col - window.col;
+          ASSERT_TRUE(window_row >= 0 && window_row < 8 && window_col >= 0 &&
+                      window_col < 8)
+              << row << "," << col;
+          mask |= uint64_t{1} << (window_row * 8 + window_col);
+        }
+        EXPECT_THAT(p.mask, Eq(mask));
+      }
+      EXPECT_THAT(distinct, SizeIs(placements.size()));
     }
   }
 }

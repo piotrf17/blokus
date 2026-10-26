@@ -15,6 +15,7 @@ cc_library(
         ":defs",
         ":tile",
         "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:check",
           "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
     ],

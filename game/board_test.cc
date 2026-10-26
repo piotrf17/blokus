@@ -619,5 +619,62 @@ TEST(BoardTest, IsPossibleMatchesVerificationBoard) {
   }
 }
 
+// Returns PossibleMoves for each tile `color` hasn't placed, in tile order.
+std::vector<Move> AllPossibleMovesFromScratch(
+    const Board& board, Color color, const std::vector<bool>& tiles_left) {
+  std::vector<Move> moves;
+  for (int tile = 0; tile < kNumTiles; ++tile) {
+    if (!tiles_left[tile]) continue;
+    std::vector<Move> tile_moves = board.PossibleMoves(kTiles[tile], color);
+    moves.insert(moves.end(), tile_moves.begin(), tile_moves.end());
+  }
+  return moves;
+}
+
+// The incrementally tracked moves must match computing them from scratch, in
+// the same order, for every color before every move.
+TEST(BoardTest, AllPossibleMovesMatchPossibleMoves) {
+  for (int seed = 0; seed < 20; ++seed) {
+    SCOPED_TRACE(testing::Message() << "seed " << seed);
+    Board board;
+    std::mt19937 eng(seed);
+    std::map<Color, std::vector<bool>> tiles_left;
+    for (Color color : {BLUE, YELLOW, RED, GREEN}) {
+      tiles_left[color] = std::vector<bool>(kNumTiles, true);
+    }
+
+    int num_moves = 0;
+    int num_passes_in_a_row = 0;
+    for (Color color = BLUE; num_passes_in_a_row < 4;
+         color = NextColor(color)) {
+      SCOPED_TRACE(testing::Message() << "move " << num_moves << ", "
+                                      << ColorToString(color) << "'s turn");
+      for (Color other : {BLUE, YELLOW, RED, GREEN}) {
+        const std::vector<Move> moves = board.AllPossibleMoves(other);
+        ASSERT_THAT(moves, ContainerEq(AllPossibleMovesFromScratch(
+                               board, other, tiles_left[other])))
+            << ColorToString(other);
+        ASSERT_THAT(board.NumPossibleMoves(other), Eq(moves.size()));
+        for (int i = 0; i < static_cast<int>(moves.size()); ++i) {
+          ASSERT_THAT(board.PossibleMove(other, i), Eq(moves[i])) << i;
+        }
+      }
+
+      const int num_possible = board.NumPossibleMoves(color);
+      if (num_possible == 0) {
+        ++num_passes_in_a_row;
+        continue;
+      }
+      num_passes_in_a_row = 0;
+      std::uniform_int_distribution<int> dist(0, num_possible - 1);
+      const Move move = board.PossibleMove(color, dist(eng));
+      ASSERT_TRUE(board.MakeMove(move)) << move.DebugString();
+      tiles_left[color][move.tile] = false;
+      ++num_moves;
+    }
+    EXPECT_THAT(num_moves, Gt(40));
+  }
+}
+
 }  // namespace
 }  // namespace blokus

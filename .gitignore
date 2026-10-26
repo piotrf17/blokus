@@ -1,3 +1,5 @@
 bazel-*
 *.org
 .vscode
+*.local.md
+.claude/worktrees/
