@@ -27,9 +27,11 @@ PlayerRewards Rollout(Game game, std::mt19937_64& rng);
 
 struct MctsOptions {
   // The exploration parameter for UCB1.
-  // Setting this higher favors exploration more over exploitation.
-  // Theory dictates that this should be approximately sqrt(2).
-  double c = 1.4;
+  // Setting this higher favors exploration more over exploitation. Theory
+  // suggests sqrt(2), but that explores far too much here. 0.25 was the best
+  // value in main:match at 10k iterations (see ARCHITECTURE.md), and the best
+  // value grows with the number of iterations.
+  double c = 0.25;
 
   // The number of iterations of MCTS to run per move, with each iteration
   // consisting of selection of a leaf node, expansion of that node, rollout,

@@ -54,7 +54,6 @@ int main(int argc, char **argv) {
   for (int i = 0; i < num_games; ++i) {
     blokus::GameRunner game(num_players);
     blokus::MctsOptions options{
-      .c = 1.4,
       .num_iterations = absl::GetFlag(FLAGS_num_mcts_iterations),
       .num_rollouts_per_iteration = absl::GetFlag(FLAGS_num_mcts_rollouts),
       .num_threads = absl::GetFlag(FLAGS_num_mcts_threads),

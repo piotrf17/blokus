@@ -201,19 +201,34 @@ Takes an optional seed for its `std::mt19937_64`.
   color passed while it still had moves), it starts a new tree.
 - **Move choice**: the most-visited root child. If there's only one legal
   move it's played immediately.
-- `MctsOptions`: `c` (1.4), `num_iterations`, `num_rollouts_per_iteration`,
+- `MctsOptions`: `c` (0.25), `num_iterations`, `num_rollouts_per_iteration`,
   `num_threads`, `virtual_loss`, `seed`.
 
 ### Playing strength
-`main:match` results (2-player, 100 games each, A's score with 95% CI,
-single thread and `c = 1.4` unless noted, 1000 iterations per move):
+`main:match` results (2-player, single thread, A's score with 95% CI). The
+first block predates the default `c = 0.25`, and uses `c = 1.4` and 1000
+iterations per move unless noted:
 - Identical configs: 0.54 ± 0.10 (no meaningful seat bias).
 - 1000 vs 250 iterations: 0.85 ± 0.07.
 - 4 threads vs 1 thread: 0.66 ± 0.09. With virtual loss 1: 0.43 ± 0.10;
   with 3: 0.39 ± 0.10.
 - `c = 0.7` vs 1.4: 0.62 ± 0.09. `c = 0.35` vs 1.4: 0.89 ± 0.06.
-So `c = 1.4` explores far too much at this budget. Threads piling onto the
-same leaf help because they exploit more, and virtual loss undoes that.
+
+So `c = 1.4` explores far too much. Threads piling onto the same leaf help
+because they exploit more, and virtual loss undoes that.
+
+Tuning `c` (100 games unless noted):
+- 1000 iterations, vs `c = 0.35`: `c = 0` 0.59 ± 0.07 (200 games),
+  0.05 0.56 ± 0.07 (200), 0.1 0.57 ± 0.07 (200), 0.2 0.53 ± 0.10,
+  0.5 0.34 ± 0.09.
+- 10k iterations, vs `c = 0.1`: `c = 0` 0.23 ± 0.08, 0.15 0.45 ± 0.10,
+  0.25 0.58 ± 0.07 (200), 0.35 0.45 ± 0.10, 0.5 0.28 ± 0.09.
+- 10k iterations, `c = 0.25` vs 0.35: 0.61 ± 0.07 (198 games).
+- 20k iterations, `c = 0.3` vs 0.15: 0.46 ± 0.10 (no clear difference).
+
+The best `c` grows with the budget: at 1000 iterations pure exploitation
+(`c = 0`) is as good as anything, but at 10k it loses badly. `c = 0.25` is
+the default, tuned for the 10k-20k budgets the binaries use.
 
 ## Binaries (`main/`)
 
@@ -328,8 +343,9 @@ From reading the code. These haven't been reproduced by a test.
 
 - The build has many `-Wsign-compare` warnings (`int` loop indexes compared
   against `.size()`).
-- The default UCB constant `c = 1.4` is much too high (see "Playing
-  strength"). It hasn't been tuned yet.
+- `c` was tuned at 1000-20k iterations. The strong web AI uses 200k, where
+  the best `c` is probably higher, but that's too slow to tune with
+  `main:match` on the VM.
 - `Game::MakeMove` accepts a pass even when the color still has legal moves.
   The AIs only pass when they have no moves, but a human can pass early.
 - Nothing range-checks `Move::tile`. `blokus_main.cc` indexes `kTiles` with
