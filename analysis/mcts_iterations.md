@@ -99,9 +99,8 @@ Pairings (A's score, and the score the fitted ratings predict):
 
 ## Caveats
 
-- All levels use `c = 0.25`. The `c` sweep found the best `c` grows with the
-  budget, so the low levels would gain a little from smaller `c` and 100k
-  might gain from larger `c`. These ratings are for the default config at
+- All levels use `c = 0.25`. The best `c` at 100k may be larger. (Smaller
+  `c` doesn't help at 1000 iterations: see `mcts_tuning.md`.) These ratings are for the default config at
   each budget, not for each budget at its best.
 - 2-player only. Elo is a two-player measure, and 4-player strength needs a
   different method.

@@ -29,8 +29,8 @@ struct MctsOptions {
   // The exploration parameter for UCB1.
   // Setting this higher favors exploration more over exploitation. Theory
   // suggests sqrt(2), but that explores far too much here. 0.25 was the best
-  // value in main:match at 10k iterations, and the best value grows with the
-  // number of iterations (see analysis/mcts_tuning.md).
+  // value in main:match at 10k iterations, and as good as anything lower at
+  // 1000 (see analysis/mcts_tuning.md).
   double c = 0.25;
 
   // The number of iterations of MCTS to run per move, with each iteration

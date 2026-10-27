@@ -214,8 +214,8 @@ Elo by iteration count, with random play at 0 (2-player, `c = 0.25`; see
 worth about 450 Elo between 300 and 3000, and under 200 above 10k.
 
 Tuning (see [`analysis/mcts_tuning.md`](analysis/mcts_tuning.md)):
-- `c = 1.4` explores far too much. The best `c` grows with the iteration
-  budget, and the default `c = 0.25` is tuned for 10k-20k iterations.
+- `c = 1.4` explores far too much. The default `c = 0.25` is the best value
+  found at 10k iterations, and is as good as anything lower at 1000.
 - At `c = 0.25`, 4 threads play as well as 1 thread at 2.8x the speed.
   Virtual loss is neutral to slightly helpful, and defaults to 3.
 - Move-choice ties go to the higher total reward, then a random child.
@@ -339,8 +339,8 @@ From reading the code. These haven't been reproduced by a test.
 - The build has many `-Wsign-compare` warnings (`int` loop indexes compared
   against `.size()`).
 - `c` was tuned at 1000-20k iterations. The strong web AI uses 200k, where
-  the best `c` is probably higher, but that's too slow to tune with
-  `main:match` on the VM.
+  the best `c` may be higher, but that's too slow to tune with `main:match`
+  on the VM.
 - `Game::MakeMove` accepts a pass even when the color still has legal moves.
   The AIs only pass when they have no moves, but a human can pass early.
 - Nothing range-checks `Move::tile`. `blokus_main.cc` indexes `kTiles` with

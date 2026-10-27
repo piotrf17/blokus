@@ -5,15 +5,16 @@ A's score with a 95% CI. 100 games per match unless noted.
 
 ## Summary
 
-- `c = 1.4` (sqrt(2), the textbook value) explores far too much. The best
-  `c` grows with the iteration budget: about 0-0.1 at 1000 iterations, and
-  0.25 at 10k. The default is `c = 0.25`.
+- `c = 1.4` (sqrt(2), the textbook value) explores far too much. The
+  default is `c = 0.25`, the best value found at 10k iterations. At 1000
+  iterations anything from 0 to 0.25 plays equally well, and larger `c` is
+  worse.
 - With `c` tuned, 4 threads play as well as 1 thread at 10k iterations,
   2.8x faster. Virtual loss is neutral to slightly helpful, and defaults to
   3.
 - Breaking move-choice ties by the first child made low-budget MCTS much
-  weaker. It's fixed, but the 1000-iteration `c` sweep below predates the
-  fix.
+  weaker. It's fixed. Before the fix, very low `c` looked best at 1000
+  iterations, and that advantage went away with it.
 
 ## Before tuning (`c = 1.4`, 1000 iterations)
 
@@ -61,11 +62,33 @@ Direct comparisons:
 - 10k iterations, `c = 0.25` vs 0.35: 0.61 ± 0.07 (198 games).
 - 20k iterations, `c = 0.3` vs 0.15: 0.46 ± 0.10 (no clear difference).
 
-The best `c` grows with the budget. At 1000 iterations pure exploitation
-(`c = 0`) is as good as anything, but at 10k it loses badly. `c = 0.25`
-became the default, tuned for the 10k-20k budgets the binaries use. The
+The best `c` seemed to grow with the budget. At 1000 iterations pure
+exploitation (`c = 0`) was as good as anything, but at 10k it lost badly.
+(The 1000-iteration results changed after the tie-break fix; see below.)
+`c = 0.25` became the default, tuned for the 10k-20k budgets the binaries
+use. The
 strong web AI plays at 200k, where the best `c` is probably higher; that is
 too slow to tune with `main:match` on the 4-vCPU VM.
+
+## Re-sweeping `c` at 1000 iterations after the tie-break fix
+
+At commit 41e32dd. 200 games each, against the default `c = 0.25`:
+
+| A's `c` | Wins-ties-losses | A's score |
+|---|---|---|
+| 0 | 92-8-100 | 0.48 ± 0.07 |
+| 0.05 | 96-5-99 | 0.49 ± 0.07 |
+| 0.1 | 94-4-102 | 0.48 ± 0.07 |
+| 0.15 | 103-6-91 | 0.53 ± 0.07 |
+| 0.35 | 81-3-116 | 0.41 ± 0.07 |
+| 0.5 | 66-5-129 | 0.34 ± 0.07 |
+
+Everything from 0 to 0.25 is equally strong, and 0.35 and 0.5 are clearly
+weaker. The edge very low `c` had in the first sweep probably came from
+the old tie-break: low `c` concentrates visits on a few moves, so fewer root
+children tie and the first-child bias applies less often. So at 1000 iterations
+the best `c` is no longer clearly lower than at 10k, and `c = 0.25` is a
+good default for both.
 
 ## Threads and virtual loss at `c = 0.25`
 
@@ -99,6 +122,5 @@ tie-break and 0.05 against the new one.
 
 ## Follow-ups
 
-- Re-sweep `c` at 1000 iterations with the tie-break fix.
 - Tune `c` at 100k-200k iterations, where the strong web AI plays.
 - Retest virtual loss with more threads, on a machine with more cores.
