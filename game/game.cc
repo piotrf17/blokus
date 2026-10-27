@@ -23,6 +23,7 @@ Game::Game(int num_players) : num_players_(num_players) {
 
 bool Game::MakeMove(const Move& move) {
   if (move.color != current_color_) return false;
+  if (move.tile < -1 || move.tile >= kNumTiles) return false;
   if (move.tile == -1) {
     colors_with_moves_ &= ~ColorBit(move.color);
   } else {
@@ -86,22 +87,24 @@ bool Game::Finished() const {
   return colors_with_moves_ == 0;
 }
 
+int Game::ColorScore(Color color) const {
+  int score = 0;
+  for (int tile = 0; tile < kNumTiles; ++tile) {
+    if (unplayed_tiles_[color] & (1u << tile)) {
+      score -= kTiles[tile].Size();
+    }
+  }
+  if (score == 0) {
+    score = (played_one_last_ & ColorBit(color)) ? 20 : 15;
+  }
+  return score;
+}
+
 GameResult Game::Result() const {
   // Score each color.
   std::array<int, 5> color_to_score = {};
   for (Color color : {BLUE, YELLOW, RED, GREEN}) {
-    // Compute the score.
-    int score = 0;
-    for (int tile = 0; tile < kNumTiles; ++tile) {
-      if (unplayed_tiles_[color] & (1u << tile)) {
-        score -= kTiles[tile].Size();
-      }
-    }
-    if (score == 0) {
-      if (played_one_last_ & ColorBit(color)) score = 20;
-      else score = 15;
-    }
-    color_to_score[color] = score;
+    color_to_score[color] = ColorScore(color);
   }
 
   // Convert color scores to player scores.

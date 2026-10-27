@@ -15,6 +15,10 @@ namespace blokus {
 struct Move {
   static Move EmptyMove(Color color);
   std::string DebugString() const;
+
+  // The board cells this move covers. Empty for a pass. `placement` must be
+  // canonical (see Tile::Canonicalize).
+  std::vector<Coord> Cells() const;
   
   Color color = INVALID;  // Who made the move.
   int tile = -1;          // If -1, a pass. Otherwise the tile that was played.
@@ -23,8 +27,8 @@ struct Move {
 
 class Board {
  public:
-  static const int kNumRows = 20;
-  static const int kNumCols = 20;
+  static constexpr int kNumRows = 20;
+  static constexpr int kNumCols = 20;
   
   Board();
   ~Board();
@@ -55,6 +59,9 @@ class Board {
   // Place a tile on the board. Returns true if the move was valid.
   // An invalid move will not change the state of the board.
   bool MakeMove(const Move& move);
+
+  // The color occupying (row, col), or INVALID if the cell is empty.
+  Color At(int row, int col) const { return pieces_[row][col]; }
 
   // Print the board to stdout, with terminal colors.
   // TODO(piotrf): return a string instead.

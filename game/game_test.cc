@@ -146,6 +146,13 @@ TEST(GameTest, WrongColorIsRejected) {
   EXPECT_THAT(game.moves(), IsEmpty());
 }
 
+TEST(GameTest, OutOfRangeTileIsRejected) {
+  Game game(4);
+  EXPECT_FALSE(game.MakeMove(MakeTestMove(BLUE, kNumTiles, 0, 0)));
+  EXPECT_FALSE(game.MakeMove(MakeTestMove(BLUE, -2, 0, 0)));
+  EXPECT_THAT(game.moves(), IsEmpty());
+}
+
 TEST(GameTest, IllegalPlacementIsRejected) {
   Game game(4);
   // BLUE must start in its own corner.
@@ -257,6 +264,27 @@ TEST(GameTest, FinishedOnceEveryColorPasses) {
   EXPECT_FALSE(game.Finished());
   ASSERT_TRUE(game.MakeMove(Move::EmptyMove(GREEN)));
   EXPECT_TRUE(game.Finished());
+}
+
+TEST(GameTest, TileAndPassStateDuringGame) {
+  Game game(4);
+  ASSERT_TRUE(game.MakeMove(MakeTestMove(BLUE, 0, 0, 0)));
+  ASSERT_TRUE(game.MakeMove(Move::EmptyMove(YELLOW)));
+  EXPECT_FALSE(game.IsTileUnplayed(BLUE, 0));
+  EXPECT_TRUE(game.IsTileUnplayed(BLUE, 1));
+  EXPECT_TRUE(game.IsTileUnplayed(YELLOW, 0));
+  EXPECT_FALSE(game.HasPassed(BLUE));
+  EXPECT_TRUE(game.HasPassed(YELLOW));
+  EXPECT_FALSE(game.HasPassed(RED));
+}
+
+TEST(GameTest, ColorScoreDuringGame) {
+  Game game(4);
+  EXPECT_THAT(game.ColorScore(BLUE), Eq(-89));
+  // The 1x5 is 5 cells.
+  ASSERT_TRUE(game.MakeMove(MakeTestMove(BLUE, 14, 0, 0)));
+  EXPECT_THAT(game.ColorScore(BLUE), Eq(-84));
+  EXPECT_THAT(game.ColorScore(YELLOW), Eq(-89));
 }
 
 TEST(GameTest, ScoreWithNoTilesPlayed) {

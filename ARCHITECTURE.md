@@ -31,6 +31,7 @@ against the AI.
 | `ai/`   | `Player` implementations: `RandomAI`, `MctsAI`, plus an MCTS benchmark. |
 | `main/` | Binaries (`blokus`, `train`, `match`) and the static web client (`main/static/`). |
 | `util/` | `HttpServer`, a thin wrapper around libmicrohttpd. |
+| `server/` | The new web server, being built to replace `main:blokus`. So far, the JSON API types. |
 | `tools/` | Scripts, e.g. `elo.py`, which fits Elo ratings to `main:match` results. |
 | `analysis/` | Write-ups of strength investigations, with their raw data in `analysis/data/`. |
 
@@ -269,6 +270,20 @@ using the older brute-force "frontier/allowed" algorithm, which is also
 (1,2,4,8) but 1..4 in C++.** The seat setup is hard-coded (`PLAYERS`).
 Controls: click a tile, `r` to rotate, `f` to flip, `p` to pass.
 
+## Web server (`server/`)
+
+A replacement for `main:blokus`, being built in steps. The server owns the
+game state and rules, and the browser only draws, so the JS will have no
+game logic.
+
+- `server/json`: the API's JSON (nlohmann_json). `GameToJson` (board, each
+  color's score, unplayed tiles and pass state, player scores, winners,
+  moves), `PossibleMovesToJson`, and `TilesToJson` (each tile's orientations
+  as cells, and which orientation each rotation and flip gives). Moves are
+  sent as a tile and its board cells. `MoveFromJson` matches those against
+  the legal moves, so a client never deals with the engine's rotation and
+  flip conventions. It also rejects a pass while moves remain.
+
 ## Utilities (`util/`)
 
 `HttpServer`: exact-match URL routing to either a static file or a
@@ -286,8 +301,9 @@ safe. That's fine for a one-human local game.
   types, `Canonicalize` keeping the same cells, and the `CornerFitsSlot`
   table derived from geometry.
 - `game:board_test`: hand-checked cases covering the start corners,
-  off-board placements, same-color and other-color adjacency, and invalid
-  moves leaving the board unchanged. Plus comparisons against the brute-force
+  off-board placements, same-color and other-color adjacency, invalid
+  moves leaving the board unchanged, and `Move::Cells` and `Board::At` (for
+  every opening move). Plus comparisons against the brute-force
   `VerificationBoard`, which reuses the old frontier/allowed algorithm:
   - `PossibleMovesMatchVerificationBoard` plays 20 random games to the end
     and compares `PossibleMoves` for every remaining tile before each move.
@@ -314,6 +330,10 @@ safe. That's fine for a one-human local game.
   iterations, so these check correctness, not playing strength. A seeded single-threaded game is
   checked to be reproducible.
 - `ai:random_test`: full games, passing with no moves, and reproducibility.
+- `server:json_test`: the JSON for tiles, moves and game states (initial,
+  mid-game, finished, ties), and `MoveFromJson` round-tripping the legal
+  moves of 8 turns with shuffled cells, rejecting malformed and illegal
+  moves, and allowing a pass only without moves.
 - There are no tests for `HttpServer` or the JS client.
 
 ## Build and dependencies
@@ -342,10 +362,10 @@ From reading the code. These haven't been reproduced by a test.
   the best `c` may be higher, but that's too slow to tune with `main:match`
   on the VM.
 - `Game::MakeMove` accepts a pass even when the color still has legal moves.
-  The AIs only pass when they have no moves, but a human can pass early.
-- Nothing range-checks `Move::tile`. `blokus_main.cc` indexes `kTiles` with
-  the tile from the HTTP request, and `Game::MakeMove` indexes its tile
-  table, so an out-of-range tile is undefined behavior.
+  Tests use this to set up positions. `server/json` rejects early passes
+  from the web, but the old `main:blokus` server doesn't.
+- `main:blokus` indexes `kTiles` with the tile from the HTTP request, so an
+  out-of-range tile is undefined behavior. (`Game::MakeMove` rejects it.)
 - `HttpServer::Request::status_` is uninitialized. `blokus.js` compares
   `PLAYERS[i] == 'computer'` (an object against a string) in its constructor.
 - `notes.org` holds personal notes and is git-ignored (`*.org`).

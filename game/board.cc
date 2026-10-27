@@ -76,6 +76,11 @@ Move Move::EmptyMove(Color color) {
   return move;
 }
 
+std::vector<Coord> Move::Cells() const {
+  if (tile == -1) return {};
+  return PlacedTile(kTiles[tile], placement);
+}
+
 std::string Move::DebugString() const {
   if (tile == -1) {
     return absl::StrCat(ColorToString(color), " played pass");

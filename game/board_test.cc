@@ -21,7 +21,9 @@ namespace {
 using ::testing::ContainerEq;
 using ::testing::Eq;
 using ::testing::Gt;
+using ::testing::IsEmpty;
 using ::testing::SizeIs;
+using ::testing::UnorderedElementsAre;
 
 std::vector<Coord> PlacedTile(const Tile& tile, const Placement& placement) {
   std::vector<Coord> coors = tile.Transform(placement.rotation, placement.flip);
@@ -345,6 +347,54 @@ TEST(BoardTest, MakeMove_InvalidMoveDoesNotChangeBoard) {
   EXPECT_FALSE(board.MakeMove(MakeTestMove(BLUE, 4, 5, 5)));
   EXPECT_THAT(board.PossibleMoves(kTiles[4], BLUE), ContainerEq(before));
   EXPECT_THAT(board.PossibleMoves(kTiles[4], YELLOW), SizeIs(1));
+}
+
+TEST(BoardTest, MoveCells) {
+  // The 1x5 is horizontal at rotation 0 and goes up from the origin at
+  // rotation 1.
+  EXPECT_THAT(MakeTestMove(BLUE, 14, 0, 0).Cells(),
+              UnorderedElementsAre(Coord(0, 0), Coord(0, 1), Coord(0, 2),
+                                   Coord(0, 3), Coord(0, 4)));
+  EXPECT_THAT(MakeTestMove(BLUE, 14, 4, 0, 1).Cells(),
+              UnorderedElementsAre(Coord(0, 0), Coord(1, 0), Coord(2, 0),
+                                   Coord(3, 0), Coord(4, 0)));
+  EXPECT_THAT(Move::EmptyMove(BLUE).Cells(), IsEmpty());
+}
+
+TEST(BoardTest, AtShowsPlacedCells) {
+  Board board;
+  ASSERT_TRUE(board.MakeMove(MakeTestMove(BLUE, 14, 0, 0)));
+  for (int col = 0; col < 5; ++col) {
+    EXPECT_THAT(board.At(0, col), Eq(BLUE)) << col;
+  }
+  EXPECT_THAT(board.At(0, 5), Eq(INVALID));
+  EXPECT_THAT(board.At(1, 0), Eq(INVALID));
+}
+
+// Every possible move covers exactly its tile's cells, and placing it fills
+// exactly those cells.
+TEST(BoardTest, PossibleMoveCellsMatchPlacement) {
+  for (Color color : {BLUE, YELLOW, RED, GREEN}) {
+    for (const Move& move : Board().AllPossibleMoves(color)) {
+      const std::vector<Coord> cells = move.Cells();
+      ASSERT_THAT(cells, SizeIs(kTiles[move.tile].Size()))
+          << move.DebugString();
+      Board board;
+      ASSERT_TRUE(board.MakeMove(move)) << move.DebugString();
+      int num_filled = 0;
+      for (int row = 0; row < Board::kNumRows; ++row) {
+        for (int col = 0; col < Board::kNumCols; ++col) {
+          if (board.At(row, col) == INVALID) continue;
+          ++num_filled;
+          EXPECT_THAT(board.At(row, col), Eq(color));
+          EXPECT_TRUE(std::find(cells.begin(), cells.end(),
+                                Coord(row, col)) != cells.end())
+              << move.DebugString() << " filled " << Coord(row, col);
+        }
+      }
+      EXPECT_THAT(num_filled, Eq(cells.size())) << move.DebugString();
+    }
+  }
 }
 
 TEST(BoardTest, PossibleMoves_StartInRedCorner) {

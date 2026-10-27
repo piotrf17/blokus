@@ -49,6 +49,20 @@ class Game {
   // Must have Finished() == true.
   GameResult Result() const;
 
+  // Returns `color`'s score so far: minus the squares in its unplayed tiles,
+  // or a bonus of 15 for playing every tile (20 if the last was the '1').
+  int ColorScore(Color color) const;
+
+  // Returns true if `color` hasn't played `tile` yet.
+  bool IsTileUnplayed(Color color, int tile) const {
+    return unplayed_tiles_[color] & (1u << tile);
+  }
+
+  // Returns true if `color` has passed. After a pass, it can only pass.
+  bool HasPassed(Color color) const {
+    return !(colors_with_moves_ & (1u << color));
+  }
+
   int num_players() const { return num_players_; }
   int current_player() const { return current_player_; }
   Color current_color() const { return current_color_; }
