@@ -29,8 +29,8 @@ struct MctsOptions {
   // The exploration parameter for UCB1.
   // Setting this higher favors exploration more over exploitation. Theory
   // suggests sqrt(2), but that explores far too much here. 0.25 was the best
-  // value in main:match at 10k iterations (see ARCHITECTURE.md), and the best
-  // value grows with the number of iterations.
+  // value in main:match at 10k iterations, and the best value grows with the
+  // number of iterations (see analysis/mcts_tuning.md).
   double c = 0.25;
 
   // The number of iterations of MCTS to run per move, with each iteration
@@ -48,7 +48,7 @@ struct MctsOptions {
   // counts this many extra visits (losses) until that iteration's rollout
   // result comes back. This keeps threads from all exploring the same leaf.
   // At 10k iterations with 4 threads it measured as neutral to slightly
-  // helpful (see ARCHITECTURE.md).
+  // helpful (see analysis/mcts_tuning.md).
   int virtual_loss = 3;
 
   // Seed for the AI's random number generator. If unset, seeds from

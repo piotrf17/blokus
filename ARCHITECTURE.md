@@ -195,8 +195,8 @@ Takes an optional seed for its `std::mt19937_64`.
   2.1 s, 4 threads 0.62 s on the 4-vCPU VM), and more threads than cores is
   slower. `MctsOptions::virtual_loss` (default 3, only used with more than
   one thread) adds temporary losses along the selected path so threads
-  spread out. At `c = 0.25` it measured as neutral to slightly helpful:
-  see "Playing strength" below.
+  spread out. At `c = 0.25` it measured as neutral to slightly helpful
+  (see "Playing strength" below).
 - **Tree reuse**: on each `SelectMove`, the AI walks the stored tree down
   through the moves made since its last turn (`game.moves()`) and keeps that
   subtree. If a move isn't in the tree (it was never expanded that far, or a
@@ -213,45 +213,14 @@ Elo by iteration count, with random play at 0 (2-player, `c = 0.25`; see
 301, 100: 630, 1000: 1312, 10k: 2163, 100k: 2521. Each 3x in iterations is
 worth about 450 Elo between 300 and 3000, and under 200 above 10k.
 
-`main:match` results (2-player, single thread, A's score with 95% CI). The
-first block predates the default `c = 0.25`, and uses `c = 1.4` and 1000
-iterations per move unless noted:
-- Identical configs: 0.54 ± 0.10 (no meaningful seat bias).
-- 1000 vs 250 iterations: 0.85 ± 0.07.
-- 4 threads vs 1 thread: 0.66 ± 0.09. With virtual loss 1: 0.43 ± 0.10;
-  with 3: 0.39 ± 0.10.
-- `c = 0.7` vs 1.4: 0.62 ± 0.09. `c = 0.35` vs 1.4: 0.89 ± 0.06.
-
-So `c = 1.4` explores far too much. Threads piling onto the same leaf help
-because they exploit more, and virtual loss undoes that.
-
-Tuning `c` (100 games unless noted):
-- 1000 iterations, vs `c = 0.35`: `c = 0` 0.59 ± 0.07 (200 games),
-  0.05 0.56 ± 0.07 (200), 0.1 0.57 ± 0.07 (200), 0.2 0.53 ± 0.10,
-  0.5 0.34 ± 0.09.
-- 10k iterations, vs `c = 0.1`: `c = 0` 0.23 ± 0.08, 0.15 0.45 ± 0.10,
-  0.25 0.58 ± 0.07 (200), 0.35 0.45 ± 0.10, 0.5 0.28 ± 0.09.
-- 10k iterations, `c = 0.25` vs 0.35: 0.61 ± 0.07 (198 games).
-- 20k iterations, `c = 0.3` vs 0.15: 0.46 ± 0.10 (no clear difference).
-
-The best `c` grows with the budget: at 1000 iterations pure exploitation
-(`c = 0`) is as good as anything, but at 10k it loses badly. `c = 0.25` is
-the default, tuned for the 10k-20k budgets the binaries use.
-
-Threads and virtual loss at `c = 0.25`, 10k iterations:
-- 4 threads vs 1 thread: 0.49 ± 0.10, with 2.8x less time per move. The
-  advantage at `c = 1.4` came from threads exploiting more, and is gone now
-  that `c` is tuned.
-- 4 threads, virtual loss 1 vs none: 0.51 ± 0.10. Virtual loss 3 vs none:
-  0.53 ± 0.10. Neither is significant, but the trend is upward, so the
-  default is 3.
-
-Move-choice tie-break: MCTS used to take the first of the most-visited
-children. Children are in tile order, so with fewer iterations than moves it
-played the smallest tile it had tried. The old tie-break against the current
-one (104 games each): 0.37 ± 0.09 at 1000 iterations, 0.50 ± 0.10 at 10k.
-Random scored 0.60 against the old MCTS at 30 iterations, and 0.05 against
-the current one. The `c` sweep at 1000 iterations above predates this fix.
+Tuning (see [`analysis/mcts_tuning.md`](analysis/mcts_tuning.md)):
+- `c = 1.4` explores far too much. The best `c` grows with the iteration
+  budget, and the default `c = 0.25` is tuned for 10k-20k iterations.
+- At `c = 0.25`, 4 threads play as well as 1 thread at 2.8x the speed.
+  Virtual loss is neutral to slightly helpful, and defaults to 3.
+- Move-choice ties go to the higher total reward, then a random child.
+  Taking the first child favored small tiles and made low-budget MCTS much
+  weaker.
 
 ## Binaries (`main/`)
 
