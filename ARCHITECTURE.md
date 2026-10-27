@@ -29,8 +29,10 @@ against the AI.
 |---------|----------|
 | `game/` | Engine: coordinates, tiles, board, game rules, game loop, game logging. |
 | `ai/`   | `Player` implementations: `RandomAI`, `MctsAI`, plus an MCTS benchmark. |
-| `main/` | Binaries (`blokus`, `train`) and the static web client (`main/static/`). |
+| `main/` | Binaries (`blokus`, `train`, `match`) and the static web client (`main/static/`). |
 | `util/` | `HttpServer`, a thin wrapper around libmicrohttpd. |
+| `tools/` | Scripts, e.g. `elo.py`, which fits Elo ratings to `main:match` results. |
+| `analysis/` | Write-ups of strength investigations, with their raw data in `analysis/data/`. |
 
 Everything is in `namespace blokus`.
 
@@ -206,6 +208,11 @@ Takes an optional seed for its `std::mt19937_64`.
   `num_threads`, `virtual_loss`, `seed`.
 
 ### Playing strength
+Elo by iteration count, with random play at 0 (2-player, `c = 0.25`; see
+[`analysis/mcts_iterations.md`](analysis/mcts_iterations.md)): 10 iterations
+301, 100: 630, 1000: 1312, 10k: 2163, 100k: 2521. Each 3x in iterations is
+worth about 450 Elo between 300 and 3000, and under 200 above 10k.
+
 `main:match` results (2-player, single thread, A's score with 95% CI). The
 first block predates the default `c = 0.25`, and uses `c = 1.4` and 1000
 iterations per move unless noted:
@@ -270,11 +277,14 @@ is meant to grow into the data pipeline for a "BlokusZero"-style learned
 policy or value function.
 
 ### `main:match`: measure playing strength
-Plays 2-player games between two MCTS configurations, A and B (flags
-`--a_iterations`, `--a_threads`, `--a_c`, `--a_virtual_loss`, and the same
-for B), swapping seats every game. Prints A's wins, ties, and losses, its
-mean score with a 95% confidence interval, the mean score margin, and each
-side's total time in `SelectMove`.
+Plays 2-player games between two configurations, A and B, swapping seats
+every game. Each is an MCTS AI (flags `--a_iterations`, `--a_threads`,
+`--a_c`, `--a_virtual_loss`, and the same for B) or the random AI
+(`--a_player=random`). Prints a line after each game with A's running
+wins, ties, and losses. At the end it prints A's totals, its mean score
+with a 95% confidence interval, the mean score margin, each side's total
+time in `SelectMove`, and a `result,<A>,<B>,<wins>,<ties>,<losses>` line
+for `tools/elo.py`.
 
 ### `ai:mcts_benchmark`
 Google Benchmark for `Rollout` and `SelectMove` (10,000 iterations on 1, 2,
