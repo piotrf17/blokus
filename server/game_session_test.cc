@@ -269,6 +269,36 @@ TEST(GameSessionTest, UndoDiscardsAiSearch) {
   EXPECT_THAT(state["version"], Eq(2));
 }
 
+TEST(GameSessionTest, Positions) {
+  const std::unique_ptr<GameSession> session = MakeSession({true, true});
+  ASSERT_TRUE(PlayFirstMove(*session).ok());
+  ASSERT_TRUE(PlayFirstMove(*session).ok());
+  const json state = session->State();
+
+  absl::StatusOr<json> start = session->Position(0);
+  ASSERT_TRUE(start.ok()) << start.status();
+  EXPECT_THAT((*start)["num_moves"], Eq(0));
+  EXPECT_THAT((*start)["moves"], SizeIs(0));
+  EXPECT_THAT((*start)["current_color"], Eq("blue"));
+  EXPECT_TRUE((*start)["board"][0][0].is_null());
+
+  absl::StatusOr<json> one = session->Position(1);
+  ASSERT_TRUE(one.ok()) << one.status();
+  EXPECT_THAT((*one)["moves"], SizeIs(1));
+  EXPECT_THAT((*one)["moves"][0], Eq(state["moves"][0]));
+  EXPECT_THAT((*one)["current_color"], Eq("yellow"));
+
+  absl::StatusOr<json> now = session->Position(2);
+  ASSERT_TRUE(now.ok()) << now.status();
+  EXPECT_THAT((*now)["board"], Eq(state["board"]));
+  EXPECT_THAT((*now)["scores"], Eq(state["scores"]));
+
+  EXPECT_THAT(session->Position(-1).status().code(),
+              Eq(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(session->Position(3).status().code(),
+              Eq(absl::StatusCode::kInvalidArgument));
+}
+
 TEST(GameSessionTest, WaitForStateReturnsNewerVersionsImmediately) {
   const std::unique_ptr<GameSession> session = MakeSession({true, true});
   ASSERT_TRUE(PlayFirstMove(*session).ok());

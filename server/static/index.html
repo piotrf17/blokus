@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blokus</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="module" src="/static/index.js"></script>
+</head>
+<body>
+  <header class="top-bar">
+    <a class="logo" href="/">Blokus</a>
+  </header>
+  <main class="home">
+    <section class="card">
+      <h2>New game</h2>
+      <form id="new-game">
+        <fieldset class="players">
+          <legend>Players</legend>
+          <label><input type="radio" name="num_players" value="2" checked> 2 players</label>
+          <label><input type="radio" name="num_players" value="4"> 4 players</label>
+        </fieldset>
+        <div id="seats"></div>
+        <p class="error" id="new-game-error" hidden></p>
+        <button type="submit" class="primary">Start game</button>
+      </form>
+    </section>
+    <section class="card">
+      <h2>Games</h2>
+      <p class="error" id="games-error" hidden></p>
+      <div id="games"><p class="muted">Loading…</p></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -33,8 +33,8 @@ in a browser.
 |---------|----------|
 | `game/` | Engine: coordinates, tiles, board, game rules, game loop, game logging. |
 | `ai/`   | `Player` implementations: `RandomAI`, `MctsAI`, plus an MCTS benchmark. |
-| `main/` | Binaries (`blokus`, `train`, `match`), and the old web client (`main/static/`, to be replaced). |
-| `server/` | The web server: JSON API, game configs, sessions, the game manager, and HTTP. |
+| `main/` | Binaries (`blokus`, `train`, `match`). |
+| `server/` | The web server (JSON API, game configs, sessions, the game manager, HTTP) and the web client (`server/static/`). |
 | `tools/` | Scripts, e.g. `elo.py`, which fits Elo ratings to `main:match` results. |
 | `analysis/` | Write-ups of strength investigations, with their raw data in `analysis/data/`. |
 
@@ -260,16 +260,6 @@ Google Benchmark for `Rollout` and `SelectMove` (10,000 iterations on 1, 2,
 4, and 8 threads, timed in wall time; items/sec is MCTS iterations). Links `-lprofiler`
 (gperftools) for CPU profiling; the file header has the `pprof` commands.
 
-## Old web client (`main/static/`)
-
-Not served any more; it will be replaced by a new client in
-`server/static/`. Plain ES modules plus a vendored jQuery 3.1.0, drawn on a `<canvas>`.
-`board.js` and `tiles.js` **re-implement the board and tile logic in JS**
-using the older brute-force "frontier/allowed" algorithm, which is also
-`VerificationBoard` in `board_test.cc`. **Colors are bit flags in JS
-(1,2,4,8) but 1..4 in C++.** The seat setup is hard-coded (`PLAYERS`).
-Controls: click a tile, `r` to rotate, `f` to flip, `p` to pass.
-
 ## Web server (`server/`)
 
 The server owns the game state and rules, and the browser only draws, so
@@ -292,7 +282,8 @@ the JS has no game logic.
   the lock, and applies the move only if nothing changed meanwhile. A color
   with no moves passes automatically. Every change bumps a `version`:
   changes carry the version they're based on and are rejected if it's stale,
-  and `WaitForState` long-polls for the next one. `Undo` goes back to before
+  and `WaitForState` long-polls for the next one. `Position(n)` replays the
+  first `n` moves, for reviewing a game. `Undo` goes back to before
   the last tile a human placed, and remakes the AIs so they don't reuse
   stale trees. The session saves itself as JSON (config and moves) after
   every change, via a temporary file and a rename.
@@ -306,6 +297,36 @@ the JS has no game logic.
   version, or a move out of turn). Clients long-poll with
   `GET /api/games/<id>?wait_version=N`, which returns after up to 25 s.
   Long-polls hold a thread each, so the server uses a pool of 32.
+
+### Web client (`server/static/`)
+
+Plain ES modules and one stylesheet, with no build step or libraries. It has
+no game logic: tile shapes come from `/api/tiles`, legal placements from
+`/legal_moves`, and past positions from `/position`.
+- `index.html`/`index.js`: start a 2- or 4-player game, choosing Human, a
+  preset AI, or a custom AI (any MCTS option) for each player, and list,
+  open or delete existing games.
+- `game.html`/`game.js`: the board (SVG), sized to the window's height,
+  and a side column with the tray of pieces for the color to move (on a
+  human's turn) and each player's score and pieces left. Below 900 px wide
+  they stack. Pick a piece, turn it (`R`/`Shift+R`/scroll, `F`), and click
+  to place it. A preview shows whether the hovered placement is legal. Dots
+  marking where the piece fits are off by default; `H` or a checkbox
+  toggles them, remembered in `localStorage`. Turning a piece is pure geometry:
+  rotate or mirror its cells, then look up which of the tile's orientations
+  has that shape. A placement is legal if its orientation and position are
+  in the legal-move list. On a touch screen, the first tap previews and a
+  second tap places.
+- A finished game can be reviewed piece by piece (buttons, or the arrow,
+  `Home` and `End` keys), skipping passes. Each position is fetched from
+  `/position` and cached, and steps taken while one loads add up.
+- The page long-polls for new states and accepts only newer versions,
+  except that an older version from a long-poll means the server
+  restarted. It reconnects with backoff, so refreshing, restarting the
+  server, or a second tab all stay in sync.
+- `api.js` wraps the API, and `common.js` has DOM and labeling helpers.
+  `style.css` uses CSS variables, with a dark theme for
+  `prefers-color-scheme: dark`.
 
 ## Tests
 
@@ -355,15 +376,15 @@ the JS has no game logic.
 - `server:game_session_test` and `server:game_manager_test` use a fake AI
   (`server/test_ai.h`) that plays the first legal move, and can be held
   mid-search by a `Gate`. They cover moves, stale versions, AI turns, forced
-  passes, undo (including during a search), long-polling, closing, saving
-  and loading, AI-only games finishing, listing, deleting, restarting the
-  manager mid-game, and skipping bad save files. `--config=tsan` runs them
-  under ThreadSanitizer.
+  passes, undo (including during a search), positions, long-polling,
+  closing, saving and loading, AI-only games finishing, listing, deleting,
+  restarting the manager mid-game, and skipping bad save files.
+  `--config=tsan` runs them under ThreadSanitizer.
 - `server:web_server_test`: runs the server on a free port and calls every
   endpoint over HTTP with httplib's client: errors and status codes, an AI
-  reply arriving through a long-poll, undo, long-poll timeouts, closing
-  games ending long-polls, deleting, and static files.
-- There are no tests for the JS client.
+  reply arriving through a long-poll, undo, positions, long-poll timeouts,
+  closing games ending long-polls, deleting, and static files.
+- There are no automated tests for the JS client.
 
 ## Build and dependencies
 

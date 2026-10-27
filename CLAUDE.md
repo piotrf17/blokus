@@ -87,9 +87,12 @@ python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
   outside the engine.
 - In 2-player games each player controls two colors. Use player ids, not
   colors, for anything about winning or scoring.
-- The JS client (`main/static/`) duplicates the engine logic. If you change
-  the game rules or the tile definitions, update both the C++ and the JS.
-- Don't modify the vendored `main/static/jquery-3.1.0.js`.
+- Keep game logic out of the web client (`server/static/`). It gets tile
+  shapes and legal moves from the API, and only does geometry (turning
+  pieces) and drawing. Rules belong in `game/` and `server/`.
+- The client is plain ES modules with no build step or libraries. Check UI
+  changes in a browser (light and dark mode, and a narrow window), not just
+  by reading the code.
 
 ## Git
 

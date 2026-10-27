@@ -143,6 +143,20 @@ json GameSession::LegalMoves() const {
   return {{"version", version_}, {"moves", PossibleMovesToJson(game_)}};
 }
 
+absl::StatusOr<json> GameSession::Position(int num_moves) const {
+  std::lock_guard<std::mutex> lock(mutex_);
+  const std::vector<Move>& moves = game_.moves();
+  if (num_moves < 0 || num_moves > static_cast<int>(moves.size())) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("The game has ", moves.size(), " moves"));
+  }
+  Game game(config_.num_players);
+  for (int i = 0; i < num_moves; ++i) CHECK(game.MakeMove(moves[i]));
+  json position = GameToJson(game);
+  position["num_moves"] = num_moves;
+  return position;
+}
+
 absl::Status GameSession::PlayMove(int version, const json& move_json) {
   {
     std::lock_guard<std::mutex> lock(mutex_);

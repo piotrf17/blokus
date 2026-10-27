@@ -202,6 +202,21 @@ TEST_F(WebServerTest, Undo) {
   EXPECT_THAT(undone.body["version"], Eq(2));
 }
 
+TEST_F(WebServerTest, Position) {
+  const std::string id = CreateGame(kHumans);
+  ASSERT_THAT(PlayFirstMove(id).status, Eq(200));
+  const std::string path = absl::StrCat("/api/games/", id, "/position");
+  Response position = Get(path + "?moves=0");
+  ASSERT_THAT(position.status, Eq(200)) << position.body;
+  EXPECT_THAT(position.body["num_moves"], Eq(0));
+  EXPECT_THAT(position.body["moves"], SizeIs(0));
+  position = Get(path + "?moves=1");
+  EXPECT_THAT(position.body["moves"], SizeIs(1));
+  EXPECT_THAT(Get(path + "?moves=2").status, Eq(400));
+  EXPECT_THAT(Get(path + "?moves=x").status, Eq(400));
+  EXPECT_THAT(Get(path).status, Eq(400));
+}
+
 TEST_F(WebServerTest, LongPollTimesOut) {
   const std::string id = CreateGame(kHumans);
   const absl::Time start = absl::Now();

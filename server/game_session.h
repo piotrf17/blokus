@@ -74,6 +74,11 @@ class GameSession {
   // {"version": ..., "moves": PossibleMovesToJson(...)}.
   nlohmann::json LegalMoves() const;
 
+  // The game as it was after its first `num_moves` moves, for reviewing it:
+  // GameToJson of that position, plus "num_moves". Returns InvalidArgument
+  // unless 0 <= num_moves <= the number of moves played.
+  absl::StatusOr<nlohmann::json> Position(int num_moves) const;
+
   // Plays a human's move, parsed by MoveFromJson. Returns FailedPrecondition
   // if `version` is stale or it isn't a human's turn, and InvalidArgument for
   // an illegal move.

@@ -28,6 +28,9 @@ namespace blokus {
 //                                     after N
 //   DELETE /api/games/<id>
 //   GET    /api/games/<id>/legal_moves
+//   GET    /api/games/<id>/position?moves=N
+//                                     the game after its first N moves
+//                                     (GameSession::Position), for review
 //   POST   /api/games/<id>/moves      {"version": N, "tile": t, "cells": [...]}
 //                                     or {"version": N, "pass": true};
 //                                     returns the new state

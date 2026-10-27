@@ -168,6 +168,20 @@ void WebServer::AddRoutes() {
                 if (game == nullptr) return;
                 SendJson(res, game->LegalMoves());
               });
+  server_.Get(std::string("/api/games/") + kId + "/position",
+              [find_game](Req req, Res res) {
+                const std::shared_ptr<GameSession> game =
+                    find_game(req, res);
+                if (game == nullptr) return;
+                int num_moves;
+                if (!absl::SimpleAtoi(req.get_param_value("moves"),
+                                      &num_moves)) {
+                  return SendError(res, 400, "\"moves\" must be an integer");
+                }
+                absl::StatusOr<json> position = game->Position(num_moves);
+                if (!position.ok()) return SendStatus(res, position.status());
+                SendJson(res, *position);
+              });
   server_.Post(std::string("/api/games/") + kId + "/moves",
                [find_game](Req req, Res res) {
                  const std::shared_ptr<GameSession> game =

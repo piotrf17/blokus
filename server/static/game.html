@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blokus</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="module" src="/static/game.js"></script>
+</head>
+<body>
+  <header class="top-bar">
+    <a class="logo" href="/">Blokus</a>
+    <span id="status" class="status"></span>
+    <span id="connection" class="connection" hidden>Reconnecting…</span>
+  </header>
+  <main class="game">
+    <svg id="board" class="board" viewBox="-0.25 -0.25 20.5 20.5"
+         role="img" aria-label="Game board"></svg>
+    <aside class="side">
+      <div id="banner" class="banner" hidden></div>
+      <div id="review" class="review" hidden>
+        <button id="review-first" title="Start (Home)" aria-label="Start">⏮</button>
+        <button id="review-prev" title="Previous move (←)" aria-label="Previous move">◀</button>
+        <span id="review-label" class="review-label"></span>
+        <button id="review-next" title="Next move (→)" aria-label="Next move">▶</button>
+        <button id="review-last" title="End (End)" aria-label="End">⏭</button>
+      </div>
+      <section id="hand" class="hand" hidden>
+        <div class="hand-header">
+          <span id="hand-title"></span>
+          <span class="piece-controls">
+            <button id="rotate" title="Rotate (R, or scroll; Shift+R the other way)">⟳ Rotate</button>
+            <button id="flip" title="Flip (F)">⇋ Flip</button>
+          </span>
+        </div>
+        <div id="tray" class="tray"></div>
+        <div class="hand-footer">
+          <label class="toggle" title="Toggle with H">
+            <input type="checkbox" id="show-fits"> Show where pieces fit
+          </label>
+          <span class="muted"><kbd>Esc</kbd> puts a piece back</span>
+        </div>
+      </section>
+      <div id="players" class="players"></div>
+      <div class="actions">
+        <button id="undo" title="Take back your last move">↶ Undo</button>
+        <a class="button" href="/">New game</a>
+      </div>
+    </aside>
+  </main>
+  <div id="toast" class="toast" hidden></div>
+</body>
+</html>
