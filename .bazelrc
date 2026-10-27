@@ -14,3 +14,10 @@ build:asan --linkopt=-fsanitize=address,undefined
 # GCC's UBSan makes function pointer comparisons non-constant, which breaks
 # Abseil's hash tables. Skip UBSan (but not ASan) in external code.
 build:asan --per_file_copt=external/.*@-fno-sanitize=undefined
+
+# ThreadSanitizer, for the multithreaded server and MCTS code:
+#   bazel test --config=tsan //server/...
+build:tsan --strip=never
+build:tsan --copt=-fsanitize=thread
+build:tsan --copt=-fno-omit-frame-pointer
+build:tsan --linkopt=-fsanitize=thread

@@ -30,7 +30,8 @@ python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
   `--alsologtostderr` flag doesn't exist here.
 - `bazel test --config=asan //...` runs the tests under ASan and UBSan. Run
   it after any change to `game/` or `ai/` that touches memory, indexing, or
-  bit manipulation.
+  bit manipulation. `--config=tsan` runs ThreadSanitizer: use it after
+  changing threading in `server/` or `ai/mcts.*`.
 - `.bazelrc` turns off the `supports_start_end_lib` toolchain feature because
   GNU ld 2.47 segfaults on `--start-lib`. Leave that line in.
 - System libraries (installed machine-wide, not through Bazel):

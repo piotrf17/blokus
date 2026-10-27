@@ -31,7 +31,7 @@ against the AI.
 | `ai/`   | `Player` implementations: `RandomAI`, `MctsAI`, plus an MCTS benchmark. |
 | `main/` | Binaries (`blokus`, `train`, `match`) and the static web client (`main/static/`). |
 | `util/` | `HttpServer`, a thin wrapper around libmicrohttpd. |
-| `server/` | The new web server, being built to replace `main:blokus`. So far, the JSON API types. |
+| `server/` | The new web server, being built to replace `main:blokus`: JSON, game configs, sessions and the game manager. |
 | `tools/` | Scripts, e.g. `elo.py`, which fits Elo ratings to `main:match` results. |
 | `analysis/` | Write-ups of strength investigations, with their raw data in `analysis/data/`. |
 
@@ -283,6 +283,24 @@ game logic.
   sent as a tile and its board cells. `MoveFromJson` matches those against
   the legal moves, so a client never deals with the engine's rotation and
   flip conventions. It also rejects a pass while moves remain.
+- `server/config`: `GameConfig`, a `SeatConfig` (human, or AI with resolved
+  `MctsOptions`) per player id, parsed from and written to JSON. AI presets
+  from the Elo ladder: `low` (300 iterations), `medium` (3k) and `high`
+  (100k, one thread per hardware thread). A `custom` seat sets any MCTS
+  option, range-checked.
+- `server/game_session`: one game. Humans move with `PlayMove`. AI turns run
+  through `RunAiTurn`, which searches on a copy of the game without holding
+  the lock, and applies the move only if nothing changed meanwhile. A color
+  with no moves passes automatically. Every change bumps a `version`:
+  changes carry the version they're based on and are rejected if it's stale,
+  and `WaitForState` long-polls for the next one. `Undo` goes back to before
+  the last tile a human placed, and remakes the AIs so they don't reuse
+  stale trees. The session saves itself as JSON (config and moves) after
+  every change, via a temporary file and a rename.
+- `server/game_manager`: all sessions, keyed by a random 12-hex-digit id. It
+  loads saved games from a data directory at startup, and runs a single AI
+  thread that serves the games needing an AI turn in round-robin order,
+  since one search already uses every core.
 
 ## Utilities (`util/`)
 
@@ -334,6 +352,15 @@ safe. That's fine for a one-human local game.
   mid-game, finished, ties), and `MoveFromJson` round-tripping the legal
   moves of 8 turns with shuffled cells, rejecting malformed and illegal
   moves, and allowing a pass only without moves.
+- `server:config_test`: presets, human, preset and custom seats, round
+  trips, and rejecting bad configs and MCTS options.
+- `server:game_session_test` and `server:game_manager_test` use a fake AI
+  (`server/test_ai.h`) that plays the first legal move, and can be held
+  mid-search by a `Gate`. They cover moves, stale versions, AI turns, forced
+  passes, undo (including during a search), long-polling, closing, saving
+  and loading, AI-only games finishing, listing, deleting, restarting the
+  manager mid-game, and skipping bad save files. `--config=tsan` runs them
+  under ThreadSanitizer.
 - There are no tests for `HttpServer` or the JS client.
 
 ## Build and dependencies
