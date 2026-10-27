@@ -3,3 +3,4 @@ bazel-*
 .vscode
 *.local.md
 .claude/worktrees/
+games/

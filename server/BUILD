@@ -132,3 +132,35 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "web_server",
+    srcs = ["web_server.cc"],
+    hdrs = ["web_server.h"],
+    deps = [
+        ":config",
+        ":game_manager",
+        ":json",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+        "@cpp-httplib//:httplib",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "web_server_test",
+    srcs = ["web_server_test.cc"],
+    deps = [
+        ":game_manager",
+        ":test_ai",
+        ":web_server",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+        "@cpp-httplib//:httplib",
+        "@googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)

@@ -11,7 +11,7 @@ bazel build //...
 bazel test //...                          # all tests
 bazel test //game:board_test --test_output=errors
 bazel run -c opt //ai:mcts_benchmark      # perf: always use -c opt
-bazel build -c opt //main:blokus && bazel-bin/main/blokus   # run from repo root; serves on :7777
+bazel build -c opt //main:blokus && bazel-bin/main/blokus   # run from repo root; serves on 127.0.0.1:7777
 bazel run -c opt //main:train -- --num_games=10 --num_players=2 --stderrthreshold=0
 bazel run -c opt //main:match -- --num_games=100 --a_c=0.7   # A vs B strength
 bazel run -c opt //main:match -- --a_player=random --b_iterations=100
@@ -35,7 +35,7 @@ python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
 - `.bazelrc` turns off the `supports_start_end_lib` toolchain feature because
   GNU ld 2.47 segfaults on `--start-lib`. Leave that line in.
 - System libraries (installed machine-wide, not through Bazel):
-  `libmicrohttpd-dev`, `libjsoncpp-dev`, `libgoogle-perftools-dev`.
+  `libgoogle-perftools-dev`, for `-lprofiler`.
 - The dev environment is a VM. If a tool or library is missing, **ask the
   user to install it** instead of installing it yourself.
 - Benchmark numbers vary with machine load. Don't run the benchmark while a

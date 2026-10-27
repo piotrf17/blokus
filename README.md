@@ -6,24 +6,24 @@ Experiments with creating an AI for the game Blokus.
 
 This project is built with [bazelisk](https://github.com/bazelbuild/bazelisk)
 (installed as `bazel`), which downloads the Bazel version pinned in
-`.bazelversion`. Most dependencies are Bazel modules listed in `MODULE.bazel`,
-but a few are system libraries. These can be installed (on Debian/Ubuntu) via:
+`.bazelversion`. Most dependencies are Bazel modules listed in `MODULE.bazel`.
+The one system library is gperftools, needed for the benchmark and self-play
+binaries. On Debian/Ubuntu:
 
 ```bash
-$ sudo apt-get install libjsoncpp-dev libmicrohttpd-dev libgoogle-perftools-dev
+$ sudo apt-get install libgoogle-perftools-dev
 ```
-
-Note that perftools is only required if running benchmarks.
 
 Afterwards, to try playing the AI, use:
 
 ```bash
 $ bazel build -c opt main:blokus
-$ bazel-bin/main/blokus --stderrthreshold=0
+$ bazel-bin/main/blokus
 ```
 
 and open http://localhost:7777 in a browser. Run the binary from the repo
-root, because it serves the web client files by relative path.
+root, because it serves the web client files by relative path. Games are
+saved in `games/`.
 
 To run the tests:
 

@@ -3,24 +3,28 @@
 An AI for the board game [Blokus](https://en.wikipedia.org/wiki/Blokus),
 written in C++ and built with Bazel. The project has four parts: a fast game
 engine, AI players (random and Monte Carlo Tree Search), a self-play driver
-that can log games to protobuf, and a small web UI so a human can play
-against the AI.
+that can log games to protobuf, and a web server for playing against the AI
+in a browser.
 
 ```
-            main/blokus_main.cc               main/train_main.cc
-      (web server + human vs. 3 MCTS)     (MCTS self-play, game logging)
-                 |        |                        |         |
-          util/http_server |                       |    game/logger ---> game_log.proto
-          (libmicrohttpd)  |                       |
-                           v                       v
-                     game/game_runner  <-- Player interface (game/player.h)
-                           |                 ^            ^
-                           v                 |            |
-                       game/game          ai/mcts      ai/random
-                           |
-                       game/board
-                           |
-                  game/tile + game/defs
+ main/blokus_main.cc                      main/train_main.cc, main/match_main.cc
+        |                                              |
+ server/web_server (HTTP, cpp-httplib)                 |    game/logger --> game_log.proto
+        |                                              v
+ server/game_manager (all games, AI thread)     game/game_runner
+        |                                              |
+ server/game_session (one game)                        |
+   uses server/config (seats, presets),                |
+        server/json (API JSON),                        |
+        Players for AI seats                           |
+        |                                              |
+        |        Player interface (game/player.h): ai/mcts, ai/random
+        |                                              |
+        `--------------------> game/game <-------------'
+                                  |
+                              game/board
+                                  |
+                         game/tile + game/defs
 ```
 
 ## Directory layout
@@ -29,9 +33,8 @@ against the AI.
 |---------|----------|
 | `game/` | Engine: coordinates, tiles, board, game rules, game loop, game logging. |
 | `ai/`   | `Player` implementations: `RandomAI`, `MctsAI`, plus an MCTS benchmark. |
-| `main/` | Binaries (`blokus`, `train`, `match`) and the static web client (`main/static/`). |
-| `util/` | `HttpServer`, a thin wrapper around libmicrohttpd. |
-| `server/` | The new web server, being built to replace `main:blokus`: JSON, game configs, sessions and the game manager. |
+| `main/` | Binaries (`blokus`, `train`, `match`), and the old web client (`main/static/`, to be replaced). |
+| `server/` | The web server: JSON API, game configs, sessions, the game manager, and HTTP. |
 | `tools/` | Scripts, e.g. `elo.py`, which fits Elo ratings to `main:match` results. |
 | `analysis/` | Write-ups of strength investigations, with their raw data in `analysis/data/`. |
 
@@ -225,18 +228,14 @@ Tuning (see [`analysis/mcts_tuning.md`](analysis/mcts_tuning.md)):
 
 ## Binaries (`main/`)
 
-### `main:blokus`: play against the AI in a browser
-Starts `HttpServer` on **port 7777**, serving the static files in
-`main/static/` by **relative path**, so run it from the repo root. Seats a
-`WebPlayer` (human, BLUE) against three `MctsAI`s (YELLOW and GREEN weak at
-20k iterations, RED strong at 200k iterations), each using one thread per
-hardware thread.
-- `POST /game/<player_id>/place` (JSON `{tile, move:{coord,rotation,flip}}`,
-  or `{tile:-1}` to pass): the human's move. `WebPlayer::SelectMove` polls
-  until this arrives, then canonicalizes the placement.
-- `GET /game/next_move`: long-poll. `MoveForwarder` queues every move
-  (including the human's, which the client skips when `player == 0`) and
-  hands them out one at a time.
+### `main:blokus`: the web server
+Runs a `GameManager` and a `WebServer` (see "Web server" below). Flags:
+`--host` (default `127.0.0.1`), `--port` (7777), `--data_dir` (`games`,
+git-ignored) and `--static_dir` (`server/static`). The paths are relative,
+so run it from the repo root. It logs INFO by default. SIGINT and SIGTERM
+are handled on their own thread: it closes the games, which ends any
+long-polls, then stops the server, and the `GameManager` waits for a
+running AI search before exiting.
 
 ### `main:train`: self-play
 MCTS-vs-MCTS games with flags `--num_games`, `--num_players`,
@@ -261,9 +260,10 @@ Google Benchmark for `Rollout` and `SelectMove` (10,000 iterations on 1, 2,
 4, and 8 threads, timed in wall time; items/sec is MCTS iterations). Links `-lprofiler`
 (gperftools) for CPU profiling; the file header has the `pprof` commands.
 
-## Web client (`main/static/`)
+## Old web client (`main/static/`)
 
-Plain ES modules plus a vendored jQuery 3.1.0, drawn on a `<canvas>`.
+Not served any more; it will be replaced by a new client in
+`server/static/`. Plain ES modules plus a vendored jQuery 3.1.0, drawn on a `<canvas>`.
 `board.js` and `tiles.js` **re-implement the board and tile logic in JS**
 using the older brute-force "frontier/allowed" algorithm, which is also
 `VerificationBoard` in `board_test.cc`. **Colors are bit flags in JS
@@ -272,9 +272,8 @@ Controls: click a tile, `r` to rotate, `f` to flip, `p` to pass.
 
 ## Web server (`server/`)
 
-A replacement for `main:blokus`, being built in steps. The server owns the
-game state and rules, and the browser only draws, so the JS will have no
-game logic.
+The server owns the game state and rules, and the browser only draws, so
+the JS has no game logic.
 
 - `server/json`: the API's JSON (nlohmann_json). `GameToJson` (board, each
   color's score, unplayed tiles and pass state, player scores, winners,
@@ -301,13 +300,12 @@ game logic.
   loads saved games from a data directory at startup, and runs a single AI
   thread that serves the games needing an AI turn in round-robin order,
   since one search already uses every core.
-
-## Utilities (`util/`)
-
-`HttpServer`: exact-match URL routing to either a static file or a
-`std::function` handler. JSON POST bodies are parsed with jsoncpp. It keeps a
-single `post_processor_` for the whole server, so concurrent POSTs aren't
-safe. That's fine for a one-human local game.
+- `server/web_server`: the HTTP API on cpp-httplib, plus the static client
+  files. The endpoints are listed in `web_server.h`. Errors are
+  `{"error": ...}` with 400 (bad request), 404 (unknown game) or 409 (stale
+  version, or a move out of turn). Clients long-poll with
+  `GET /api/games/<id>?wait_version=N`, which returns after up to 25 s.
+  Long-polls hold a thread each, so the server uses a pool of 32.
 
 ## Tests
 
@@ -361,20 +359,25 @@ safe. That's fine for a one-human local game.
   and loading, AI-only games finishing, listing, deleting, restarting the
   manager mid-game, and skipping bad save files. `--config=tsan` runs them
   under ThreadSanitizer.
-- There are no tests for `HttpServer` or the JS client.
+- `server:web_server_test`: runs the server on a free port and calls every
+  endpoint over HTTP with httplib's client: errors and status codes, an AI
+  reply arriving through a long-poll, undo, long-poll timeouts, closing
+  games ending long-polls, deleting, and static files.
+- There are no tests for the JS client.
 
 ## Build and dependencies
 
 - Bazel 9 (pinned in `.bazelversion`, run through bazelisk) with bzlmod.
-  `MODULE.bazel` lists abseil-cpp, googletest, google_benchmark, protobuf,
-  and rules_cc from the Bazel Central Registry. Resolved versions are locked
+  `MODULE.bazel` lists abseil-cpp, cpp-httplib, googletest,
+  google_benchmark, nlohmann_json, protobuf, and rules_cc from the Bazel
+  Central Registry. cpp-httplib pulls in boringssl and zlib, which makes
+  the first build slower; our code doesn't use TLS (Caddy can do that). Resolved versions are locked
   in `MODULE.bazel.lock`.
 - C++20 (`.bazelrc`, for both target and host builds).
 - `.bazelrc` also turns off `supports_start_end_lib`, because GNU ld 2.47
   segfaults on the `--start-lib/--end-lib` flags Bazel would otherwise pass.
-- System libraries linked with `linkopts`: libmicrohttpd and jsoncpp (for
-  `main:blokus`), and gperftools `-lprofiler` (for `ai:mcts_benchmark` and
-  `main:train`).
+- The only system library is gperftools `-lprofiler`, linked with
+  `linkopts` (for `ai:mcts_benchmark` and `main:train`).
 - Logging, flags, and CHECK come from Abseil (glog was removed). `VLOG` calls
   are commented out with "re-enable once absl supports vlog"; newer Abseil
   has `VLOG`.
@@ -390,9 +393,5 @@ From reading the code. These haven't been reproduced by a test.
   on the VM.
 - `Game::MakeMove` accepts a pass even when the color still has legal moves.
   Tests use this to set up positions. `server/json` rejects early passes
-  from the web, but the old `main:blokus` server doesn't.
-- `main:blokus` indexes `kTiles` with the tile from the HTTP request, so an
-  out-of-range tile is undefined behavior. (`Game::MakeMove` rejects it.)
-- `HttpServer::Request::status_` is uninitialized. `blokus.js` compares
-  `PLAYERS[i] == 'computer'` (an object against a string) in its constructor.
+  from the web.
 - `notes.org` holds personal notes and is git-ignored (`*.org`).
