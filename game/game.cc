@@ -83,6 +83,19 @@ Move Game::PossibleMove(int index) const {
   return board_.PossibleMove(current_color_, index);
 }
 
+std::array<int, kNumTiles> Game::NumPossibleMovesByTile() const {
+  if (!(colors_with_moves_ & ColorBit(current_color_))) return {};
+  return board_.NumPossibleMovesByTile(current_color_);
+}
+
+Move Game::PossibleMoveWithTile(int tile, int index) const {
+  CHECK_GE(tile, 0);
+  CHECK_LT(tile, kNumTiles);
+  CHECK(colors_with_moves_ & ColorBit(current_color_));
+  // The board checks `index`.
+  return board_.PossibleMoveWithTile(current_color_, tile, index);
+}
+
 bool Game::Finished() const {
   return colors_with_moves_ == 0;
 }

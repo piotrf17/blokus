@@ -179,12 +179,21 @@ Takes an optional seed for its `std::mt19937_64`.
   ties are broken at random. A leaf is expanded only after its parent has at
   least as many visits as it has children. If there are no legal moves, the
   node gets a single pass child.
-- **Rollout** (`Rollout`): uniformly random moves for every color until the
-  game ends. It picks an index with `Game::NumPossibleMoves` and fetches only
-  that move with `Game::PossibleMove`, instead of building the full list.
+- **Rollout** (`Rollout`): random moves (`RolloutMove`) for every color
+  until the game ends. Each move is weighted by `exp(beta * tile size)`,
+  with `beta` = `RolloutOptions::size_bias` (default 1): it counts moves per
+  tile with `Game::NumPossibleMovesByTile`, picks a tile by count times
+  weight, then a uniform move of that tile with
+  `Game::PossibleMoveWithTile`. At `size_bias` 0 moves are uniform: it picks
+  an index with `Game::NumPossibleMoves` and fetches only that move with
+  `Game::PossibleMove`, instead of building the full list. Both cost about
+  the same.
   Returns `Rewards(result)`: 1 for the sole top scorer, or 1/k for each of k
   players tied for the top score (ties happen in about 3% of random 2-player
-  rollouts and 8% of 4-player ones). The score margin isn't used.
+  rollouts and 8% of 4-player ones). With `margin_weight` w > 0 (default 0)
+  that is mixed with a margin reward: `(1 - w) * win + w * (0.5 + 0.5 *
+  tanh(margin / margin_scale))`, where the margin is over the best other
+  player.
 - **Backprop**: walk up to the root, incrementing `visits` and adding the
   reward of each node's `player` to its `wins` (a `double`). Because `player` is a player id rather than a
   color, this works for 2-player games where one player has two colors.
@@ -209,7 +218,9 @@ Takes an optional seed for its `std::mt19937_64`.
   reward and then randomly. If there's only one legal move it's played
   immediately.
 - `MctsOptions`: `c` (0.25), `num_iterations`, `num_rollouts_per_iteration`,
-  `num_threads`, `virtual_loss`, `seed`.
+  `rollout` (`RolloutOptions`: `size_bias` 1, `margin_weight` 0,
+  `margin_scale` 10), `num_threads`, `virtual_loss`,
+  `seed`.
 
 ### Playing strength
 Elo by iteration count, with random play at 0 (2-player, `c = 0.25`; see
@@ -225,6 +236,17 @@ Tuning (see [`analysis/mcts_tuning.md`](analysis/mcts_tuning.md)):
 - Move-choice ties go to the higher total reward, then a random child.
   Taking the first child favored small tiles and made low-budget MCTS much
   weaker.
+
+Rollouts (see [`analysis/mcts_rollouts.md`](analysis/mcts_rollouts.md)):
+- Favoring larger tiles (`size_bias` 1) scores 0.65 against uniform
+  rollouts at 1000 iterations, but only 0.535 ± 0.07 at 10k.
+- Adding score-margin rewards (`margin_weight` 0.5) to that beats the
+  default 0.585 ± 0.046 at 10k (440 games), and wins by 16 points on
+  average. Against `size_bias` 1 alone, margin rewards score 0.47 ± 0.065
+  at 10k: they make wins bigger, not more frequent. `size_bias` 1 is the
+  default; margin rewards are off by default.
+- Best-of-k rollout moves by corner heuristics made MCTS weaker, and were
+  removed.
 
 ## Binaries (`main/`)
 
@@ -256,7 +278,8 @@ time in `SelectMove`, and a `result,<A>,<B>,<wins>,<ties>,<losses>` line
 for `tools/elo.py`.
 
 ### `ai:mcts_benchmark`
-Google Benchmark for `Rollout` and `SelectMove` (10,000 iterations on 1, 2,
+Google Benchmark for `Rollout` (uniform, and with `size_bias` 1 and 4) and
+`SelectMove` (10,000 iterations on 1, 2,
 4, and 8 threads, timed in wall time; items/sec is MCTS iterations). Links `-lprofiler`
 (gperftools) for CPU profiling; the file header has the `pprof` commands.
 
@@ -359,7 +382,10 @@ no game logic: tile shapes come from `/api/tiles`, legal placements from
   every move.
 - `bazel test --config=asan //...` runs the tests under AddressSanitizer and
   UndefinedBehaviorSanitizer. It is slow (`board_test` takes about 100 s).
-- `ai:mcts_test`: rollouts return a valid player id, the opening move is
+- `ai:mcts_test`: rollouts return a valid player id, biased rollouts finish
+  and are reproducible, `RolloutMove` with no bias matches a uniform pick and
+  with a bias matches the expected tile-size distribution, margin rewards
+  match hand-computed values, the opening move is
   legal, and full games with tree reuse for 2 and 4 players and with 4
   threads finish. Also checks that the AI copes when an opponent passes while
   it still has moves, and that virtual loss leaves single-threaded play

@@ -56,6 +56,14 @@ class Board {
   // Returns AllPossibleMoves(color)[index], without building all the moves.
   Move PossibleMove(Color color, int index) const;
 
+  // Returns the number of possible moves for `color` with each tile.
+  std::array<int, kNumTiles> NumPossibleMovesByTile(Color color) const;
+
+  // Returns the possible move for `color` at `index` among the moves with
+  // `tile`, in AllPossibleMoves order. `index` must be less than
+  // NumPossibleMovesByTile(color)[tile].
+  Move PossibleMoveWithTile(Color color, int tile, int index) const;
+
   // Place a tile on the board. Returns true if the move was valid.
   // An invalid move will not change the state of the board.
   bool MakeMove(const Move& move);

@@ -21,9 +21,35 @@ using PlayerRewards = std::array<double, 4>;
 // for each of k players tied for the top score, and 0 for everyone else.
 PlayerRewards Rewards(const GameResult& result);
 
-// Computes a rollout of the given game, using random actions from `rng` for
-// all players' moves. Returns the Rewards of the finished game.
-PlayerRewards Rollout(Game game, std::mt19937_64& rng);
+// Mixes Rewards with a reward for each player's score margin over the best
+// other player: (1 - margin_weight) * Rewards(result) + margin_weight *
+// (0.5 + 0.5 * tanh(margin / margin_scale)). With margin_weight 0 this is
+// Rewards(result).
+PlayerRewards Rewards(const GameResult& result, double margin_weight,
+                      double margin_scale);
+
+// How rollouts pick moves (see RolloutMove).
+struct RolloutOptions {
+  // Each possible move is weighted by exp(size_bias * size of its tile), so a
+  // positive value favors larger tiles. 0 weights every move equally.
+  double size_bias = 1;
+
+  // How much a rollout's reward depends on score margins rather than only
+  // on who won, and the margin that counts as decisive (see Rewards).
+  double margin_weight = 0;
+  double margin_scale = 10;
+};
+
+// Returns a random move for the current color of `game`, picked as
+// `options` describes, or a pass if it has no possible moves.
+Move RolloutMove(const Game& game, const RolloutOptions& options,
+                 std::mt19937_64& rng);
+
+// Computes a rollout of the given game, playing RolloutMove for all players,
+// using `rng`. Returns the Rewards of the finished game, with `options`'
+// margin_weight and margin_scale.
+PlayerRewards Rollout(Game game, std::mt19937_64& rng,
+                      const RolloutOptions& options = {});
 
 struct MctsOptions {
   // The exploration parameter for UCB1.
@@ -40,6 +66,9 @@ struct MctsOptions {
 
   // The number of random rollouts to run per MCTS iteration.
   int num_rollouts_per_iteration = 1;
+
+  // How rollouts pick moves and score finished games.
+  RolloutOptions rollout;
 
   // The number of parallel threads that are running iterations.
   int num_threads = 1;

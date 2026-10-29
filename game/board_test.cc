@@ -1,6 +1,7 @@
 #include "game/board.h"
 
 #include <algorithm>
+#include <array>
 #include <map>
 #include <random>
 #include <set>
@@ -22,6 +23,7 @@ using ::testing::ContainerEq;
 using ::testing::Eq;
 using ::testing::Gt;
 using ::testing::IsEmpty;
+using ::testing::Lt;
 using ::testing::SizeIs;
 using ::testing::UnorderedElementsAre;
 
@@ -708,6 +710,17 @@ TEST(BoardTest, AllPossibleMovesMatchPossibleMoves) {
         for (int i = 0; i < static_cast<int>(moves.size()); ++i) {
           ASSERT_THAT(board.PossibleMove(other, i), Eq(moves[i])) << i;
         }
+        const std::array<int, kNumTiles> counts =
+            board.NumPossibleMovesByTile(other);
+        int i = 0;
+        for (int tile = 0; tile < kNumTiles; ++tile) {
+          for (int j = 0; j < counts[tile]; ++j, ++i) {
+            ASSERT_THAT(i, Lt(static_cast<int>(moves.size())));
+            ASSERT_THAT(board.PossibleMoveWithTile(other, tile, j),
+                        Eq(moves[i]));
+          }
+        }
+        ASSERT_THAT(i, Eq(static_cast<int>(moves.size())));
       }
 
       const int num_possible = board.NumPossibleMoves(color);

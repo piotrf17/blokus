@@ -1,6 +1,7 @@
 #include "game/game.h"
 
 #include <algorithm>
+#include <array>
 #include <vector>
 
 #include "gmock/gmock.h"
@@ -12,6 +13,7 @@ namespace {
 using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::IsEmpty;
+using ::testing::Lt;
 using ::testing::Ne;
 using ::testing::Not;
 using ::testing::SizeIs;
@@ -250,6 +252,17 @@ TEST(GameTest, PossibleMoveMatchesPossibleMoves) {
     for (int i = 0; i < static_cast<int>(moves.size()); ++i) {
       ASSERT_THAT(game.PossibleMove(i), Eq(moves[i])) << i;
     }
+    // Moves are in tile order, so each tile's moves are a contiguous run.
+    const std::array<int, kNumTiles> counts = game.NumPossibleMovesByTile();
+    int i = 0;
+    for (int tile = 0; tile < kNumTiles; ++tile) {
+      for (int j = 0; j < counts[tile]; ++j, ++i) {
+        ASSERT_THAT(i, Lt(static_cast<int>(moves.size())));
+        ASSERT_THAT(game.PossibleMoveWithTile(tile, j), Eq(moves[i]))
+            << tile << " " << j;
+      }
+    }
+    ASSERT_THAT(i, Eq(static_cast<int>(moves.size())));
     ASSERT_TRUE(game.MakeMove(moves.empty()
                                   ? Move::EmptyMove(game.current_color())
                                   : moves.front()));

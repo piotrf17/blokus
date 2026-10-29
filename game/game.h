@@ -42,6 +42,13 @@ class Game {
   // Returns PossibleMoves()[index], without building all the moves.
   Move PossibleMove(int index) const;
 
+  // Returns the number of PossibleMoves() with each tile.
+  std::array<int, kNumTiles> NumPossibleMovesByTile() const;
+
+  // Returns the move at `index` among the PossibleMoves() with `tile`.
+  // `index` must be less than NumPossibleMovesByTile()[tile].
+  Move PossibleMoveWithTile(int tile, int index) const;
+
   // Returns true if the game is finished.
   bool Finished() const;
 

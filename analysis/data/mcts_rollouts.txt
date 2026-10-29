@@ -1,0 +1,53 @@
+# main:match results for analysis/mcts_rollouts.md, on top of commit 03c5002.
+# 2-player, single thread. One line per shard.
+result,mcts_i1000_c0.25_t1_vl3_rb0.5,mcts_i1000_c0.25_t1_vl3,53,2,45
+result,mcts_i1000_c0.25_t1_vl3_rb0.5,mcts_i1000_c0.25_t1_vl3,57,2,41
+result,mcts_i1000_c0.25_t1_vl3_rb1,mcts_i1000_c0.25_t1_vl3,59,6,35
+result,mcts_i1000_c0.25_t1_vl3_rb1,mcts_i1000_c0.25_t1_vl3,67,2,31
+result,mcts_i1000_c0.25_t1_vl3_rb2,mcts_i1000_c0.25_t1_vl3,63,2,35
+result,mcts_i1000_c0.25_t1_vl3_rb2,mcts_i1000_c0.25_t1_vl3,64,4,32
+result,mcts_i1000_c0.25_t1_vl3_rb4,mcts_i1000_c0.25_t1_vl3,55,3,42
+result,mcts_i1000_c0.25_t1_vl3_rb4,mcts_i1000_c0.25_t1_vl3,48,3,49
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,25,1,24
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,27,0,23
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,31,0,19
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,23,1,26
+result,mcts_i1000_c0.25_t1_vl3_rb1_rk2_cw1_bw1,mcts_i1000_c0.25_t1_vl3_rb1,44,4,52
+result,mcts_i1000_c0.25_t1_vl3_rb1_rk4_cw1_bw1,mcts_i1000_c0.25_t1_vl3_rb1,37,3,60
+result,mcts_i1000_c0.25_t1_vl3_rb1_rk8_cw1_bw1,mcts_i1000_c0.25_t1_vl3_rb1,30,2,68
+result,mcts_i1000_c0.25_t1_vl3_rb1_rk4_cw1_bw0,mcts_i1000_c0.25_t1_vl3_rb1,21,3,76
+result,mcts_i1000_c0.25_t1_vl3_rb1_rk4_cw0_bw1,mcts_i1000_c0.25_t1_vl3_rb1,37,2,61
+result,mcts_i1000_c0.25_t1_vl3_rb1_mw0.25_ms10,mcts_i1000_c0.25_t1_vl3_rb1,50,1,49
+result,mcts_i1000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i1000_c0.25_t1_vl3_rb1,66,0,34
+result,mcts_i1000_c0.25_t1_vl3_rb1_mw1_ms10,mcts_i1000_c0.25_t1_vl3_rb1,55,1,44
+result,mcts_i1000_c0.25_t1_vl3_rb1_mw0.5_ms25,mcts_i1000_c0.25_t1_vl3_rb1,54,2,44
+result,mcts_i1000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i1000_c0.25_t1_vl3_rb1,51,1,48
+result,mcts_i1000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i1000_c0.25_t1_vl3_rb1,51,3,46
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,18,1,17
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,17,0,19
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,25,2,9
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,17,1,18
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,15,3,18
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,22,1,13
+# Second batch of the 10k combination:
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,20,0,8
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,16,0,12
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,15,0,13
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,21,0,7
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,18,0,10
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,20,0,8
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,15,1,12
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3,14,0,14
+# Stopped after 25 games per shard (from the per-game progress lines):
+result,mcts_i10000_c0.25_t1_vl3_rb2,mcts_i10000_c0.25_t1_vl3,12,0,13
+result,mcts_i10000_c0.25_t1_vl3_rb2,mcts_i10000_c0.25_t1_vl3,17,0,8
+result,mcts_i10000_c0.25_t1_vl3_rb2,mcts_i10000_c0.25_t1_vl3,12,0,13
+result,mcts_i10000_c0.25_t1_vl3_rb2,mcts_i10000_c0.25_t1_vl3,12,1,12
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,12,0,16
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,15,1,12
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,10,1,17
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,15,0,13
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,15,0,13
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,13,2,13
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,11,0,17
+result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,13,0,15

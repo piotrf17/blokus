@@ -1,6 +1,7 @@
 #include "game/board.h"
 
 #include <algorithm>
+#include <array>
 #include <cstring>
 
 #include "absl/log/check.h"
@@ -316,19 +317,29 @@ Move Board::PossibleMove(Color color, int index) const {
   CHECK_LT(index, NumPossibleMoves(color));
   // Find the tile of the move at `index`, then its position among the moves
   // with that tile.
-  int tile_count[kNumTiles] = {};
-  for (const TrackedMove& tracked : tracked_moves_[color]) {
-    ++tile_count[tracked.tile];
-  }
+  const std::array<int, kNumTiles> tile_count = NumPossibleMovesByTile(color);
   int tile = 0;
   while (index >= tile_count[tile]) {
     index -= tile_count[tile];
     ++tile;
   }
+  return PossibleMoveWithTile(color, tile, index);
+}
+
+std::array<int, kNumTiles> Board::NumPossibleMovesByTile(Color color) const {
+  std::array<int, kNumTiles> tile_count = {};
+  for (const TrackedMove& tracked : tracked_moves_[color]) {
+    ++tile_count[tracked.tile];
+  }
+  return tile_count;
+}
+
+Move Board::PossibleMoveWithTile(Color color, int tile, int index) const {
+  CHECK_GE(index, 0);
   for (const TrackedMove& tracked : tracked_moves_[color]) {
     if (tracked.tile == tile && index-- == 0) return ToMove(color, tracked);
   }
-  LOG(FATAL) << "No possible move at index " << index;
+  LOG(FATAL) << "No possible move with tile " << tile << " at index " << index;
 }
 
 Move Board::ToMove(Color color, const TrackedMove& tracked) {

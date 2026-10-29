@@ -12,6 +12,7 @@ cc_library(
     hdrs = ["mcts.h"],
     deps = [
         "//game:player",
+        "//game:tile",
         "@abseil-cpp//absl/log:check",
         "@abseil-cpp//absl/strings:str_format",
     ],

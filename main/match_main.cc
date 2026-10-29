@@ -41,6 +41,13 @@ ABSL_FLAG(double, a_c, blokus::MctsOptions().c,
           "UCB1 exploration constant for A.");
 ABSL_FLAG(int, a_virtual_loss, blokus::MctsOptions().virtual_loss,
           "MCTS virtual loss for A.");
+ABSL_FLAG(double, a_rollout_size_bias,
+          blokus::RolloutOptions().size_bias,
+          "How strongly A's rollouts favor larger tiles.");
+ABSL_FLAG(double, a_margin_weight, blokus::RolloutOptions().margin_weight,
+          "How much A's rollout rewards depend on the score margin.");
+ABSL_FLAG(double, a_margin_scale, blokus::RolloutOptions().margin_scale,
+          "The score margin that counts as decisive for A's rewards.");
 
 ABSL_FLAG(std::string, b_player, "mcts", "B's AI: \"mcts\" or \"random\".");
 ABSL_FLAG(int, b_iterations, 1000, "MCTS iterations per move for B.");
@@ -49,6 +56,13 @@ ABSL_FLAG(double, b_c, blokus::MctsOptions().c,
           "UCB1 exploration constant for B.");
 ABSL_FLAG(int, b_virtual_loss, blokus::MctsOptions().virtual_loss,
           "MCTS virtual loss for B.");
+ABSL_FLAG(double, b_rollout_size_bias,
+          blokus::RolloutOptions().size_bias,
+          "How strongly B's rollouts favor larger tiles.");
+ABSL_FLAG(double, b_margin_weight, blokus::RolloutOptions().margin_weight,
+          "How much B's rollout rewards depend on the score margin.");
+ABSL_FLAG(double, b_margin_scale, blokus::RolloutOptions().margin_scale,
+          "The score margin that counts as decisive for B's rewards.");
 
 namespace blokus {
 namespace {
@@ -86,8 +100,18 @@ Config MakeConfig(const std::string& player, MctsOptions options) {
 std::string Name(const Config& config) {
   if (config.random) return "random";
   const MctsOptions& options = config.options;
-  return absl::StrCat("mcts_i", options.num_iterations, "_c", options.c, "_t",
-                      options.num_threads, "_vl", options.virtual_loss);
+  std::string name =
+      absl::StrCat("mcts_i", options.num_iterations, "_c", options.c, "_t",
+                   options.num_threads, "_vl", options.virtual_loss);
+  // Rollout options are only named when they aren't uniform, so names match
+  // results from before they existed.
+  const RolloutOptions& rollout = options.rollout;
+  if (rollout.size_bias != 0) absl::StrAppend(&name, "_rb", rollout.size_bias);
+  if (rollout.margin_weight != 0) {
+    absl::StrAppend(&name, "_mw", rollout.margin_weight, "_ms",
+                    rollout.margin_scale);
+  }
+  return name;
 }
 
 int Main() {
@@ -97,12 +121,20 @@ int Main() {
       absl::GetFlag(FLAGS_a_player),
       {.c = absl::GetFlag(FLAGS_a_c),
        .num_iterations = absl::GetFlag(FLAGS_a_iterations),
+       .rollout =
+           {.size_bias = absl::GetFlag(FLAGS_a_rollout_size_bias),
+            .margin_weight = absl::GetFlag(FLAGS_a_margin_weight),
+            .margin_scale = absl::GetFlag(FLAGS_a_margin_scale)},
        .num_threads = absl::GetFlag(FLAGS_a_threads),
        .virtual_loss = absl::GetFlag(FLAGS_a_virtual_loss)});
   Config b = MakeConfig(
       absl::GetFlag(FLAGS_b_player),
       {.c = absl::GetFlag(FLAGS_b_c),
        .num_iterations = absl::GetFlag(FLAGS_b_iterations),
+       .rollout =
+           {.size_bias = absl::GetFlag(FLAGS_b_rollout_size_bias),
+            .margin_weight = absl::GetFlag(FLAGS_b_margin_weight),
+            .margin_scale = absl::GetFlag(FLAGS_b_margin_scale)},
        .num_threads = absl::GetFlag(FLAGS_b_threads),
        .virtual_loss = absl::GetFlag(FLAGS_b_virtual_loss)});
 

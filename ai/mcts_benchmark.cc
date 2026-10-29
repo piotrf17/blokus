@@ -26,14 +26,27 @@ namespace {
 // BM_Rollout     932193 ns       932172 ns          728  (possible tile cache)
 // BM_Rollout     176952 ns       176832 ns        79416  (incremental moves)
 
+// Uniform rollouts, as in the history above.
 static void BM_Rollout(benchmark::State& state) {
   std::mt19937_64 rng(0);
   for (auto _ : state) {
     Game game(4);
-    Rollout(game, rng);
+    Rollout(game, rng, {.size_bias = 0});
   }
 }
 BENCHMARK(BM_Rollout);
+
+// Rollouts favoring larger tiles (see RolloutMove), by size_bias. 1 is the
+// default.
+static void BM_RolloutSizeBias(benchmark::State& state) {
+  std::mt19937_64 rng(0);
+  const double size_bias = state.range(0);
+  for (auto _ : state) {
+    Game game(4);
+    Rollout(game, rng, {.size_bias = size_bias});
+  }
+}
+BENCHMARK(BM_RolloutSizeBias)->Arg(1)->Arg(4);
 
 static void BM_SelectMove(benchmark::State& state) {
   for (auto _ : state) {

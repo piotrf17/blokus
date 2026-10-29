@@ -1,6 +1,7 @@
 #include "ai/mcts.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cmath>
 #include <limits>
@@ -11,6 +12,8 @@
 
 #include "absl/log/check.h"
 #include "absl/strings/str_format.h"
+
+#include "game/tile.h"
 
 namespace blokus {
 
@@ -152,18 +155,89 @@ PlayerRewards Rewards(const GameResult& result) {
   return rewards;
 }
 
-PlayerRewards Rollout(Game game, std::mt19937_64& rng) {
-  while (!game.Finished()) {
-    const int num_moves = game.NumPossibleMoves();
-    Move move = Move::EmptyMove(game.current_color());
-    if (num_moves > 0) {
-      std::uniform_int_distribution<int> pick(0, num_moves - 1);
-      move = game.PossibleMove(pick(rng));
+PlayerRewards Rewards(const GameResult& result, double margin_weight,
+                      double margin_scale) {
+  PlayerRewards rewards = Rewards(result);
+  if (margin_weight == 0) return rewards;
+  const int num_players = result.scores.size();
+  for (int i = 0; i < num_players; ++i) {
+    int best_other = std::numeric_limits<int>::min();
+    for (int j = 0; j < num_players; ++j) {
+      if (j != i) best_other = std::max(best_other, result.scores[j]);
     }
-    CHECK(game.MakeMove(move));
+    const double margin = result.scores[i] - best_other;
+    const double margin_reward = 0.5 + 0.5 * std::tanh(margin / margin_scale);
+    rewards[i] =
+        (1 - margin_weight) * rewards[i] + margin_weight * margin_reward;
   }
-  // TODO(piotrf): use score margin as well?
-  return Rewards(game.Result());
+  return rewards;
+}
+
+namespace {
+
+// Picks rollout moves as RolloutOptions describes, with the tile weights
+// computed once.
+class RolloutPolicy {
+ public:
+  explicit RolloutPolicy(const RolloutOptions& options)
+      : uniform_(options.size_bias == 0) {
+    for (int tile = 0; tile < kNumTiles; ++tile) {
+      weights_[tile] = std::exp(options.size_bias * kTiles[tile].Size());
+    }
+  }
+
+  Move PickMove(const Game& game, std::mt19937_64& rng) const {
+    const int num_moves = game.NumPossibleMoves();
+    if (num_moves == 0) return Move::EmptyMove(game.current_color());
+    if (uniform_) {
+      std::uniform_int_distribution<int> pick(0, num_moves - 1);
+      return game.PossibleMove(pick(rng));
+    }
+
+    // Picks a tile with probability proportional to its number of moves times
+    // its weight, then one of its moves uniformly.
+    const std::array<int, kNumTiles> counts = game.NumPossibleMovesByTile();
+    double total = 0;
+    int last_tile = -1;
+    for (int tile = 0; tile < kNumTiles; ++tile) {
+      if (counts[tile] == 0) continue;
+      total += counts[tile] * weights_[tile];
+      last_tile = tile;
+    }
+    CHECK_GE(last_tile, 0);
+    double r = std::uniform_real_distribution<double>(0, total)(rng);
+    // Rounding can leave r just past the last tile, so that's the fallback.
+    int tile = last_tile;
+    for (int t = 0; t < last_tile; ++t) {
+      r -= counts[t] * weights_[t];
+      if (r < 0) {
+        tile = t;
+        break;
+      }
+    }
+    std::uniform_int_distribution<int> pick(0, counts[tile] - 1);
+    return game.PossibleMoveWithTile(tile, pick(rng));
+  }
+
+ private:
+  const bool uniform_;
+  std::array<double, kNumTiles> weights_;
+};
+
+}  // namespace
+
+Move RolloutMove(const Game& game, const RolloutOptions& options,
+                 std::mt19937_64& rng) {
+  return RolloutPolicy(options).PickMove(game, rng);
+}
+
+PlayerRewards Rollout(Game game, std::mt19937_64& rng,
+                      const RolloutOptions& options) {
+  const RolloutPolicy policy(options);
+  while (!game.Finished()) {
+    CHECK(game.MakeMove(policy.PickMove(game, rng)));
+  }
+  return Rewards(game.Result(), options.margin_weight, options.margin_scale);
 }
 
 MctsAI::MctsAI(int player_id, const MctsOptions& options)
@@ -188,7 +262,7 @@ void MctsAI::Iteration(Game game, std::mt19937_64& rng) {
   for (int i = 0; i < options_.num_rollouts_per_iteration; ++i) {
     // TODO(piotrf): re-enable vlog once absl supports it
     //  VLOG(3) << "  MCTS running rollout " << i;
-    const PlayerRewards rewards = Rollout(game, rng);
+    const PlayerRewards rewards = Rollout(game, rng, options_.rollout);
 
     // Credit each node with the reward of the player who made its move.
     std::lock_guard<std::mutex> lock(tree_mutex_);
