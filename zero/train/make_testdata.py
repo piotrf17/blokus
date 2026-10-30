@@ -7,7 +7,6 @@ import pathlib
 
 import torch
 
-import export
 import model
 
 TESTDATA = pathlib.Path(__file__).parent.parent / "testdata"
@@ -36,7 +35,7 @@ def main() -> None:
         for _ in range(3):
             net(torch.rand(8, model.NUM_PLANES, 20, 20),
                 torch.rand(8, model.NUM_GLOBALS))
-    export.export(net, str(TESTDATA / "tiny.onnx"))
+    model.export_onnx(net, str(TESTDATA / "tiny.onnx"))
 
     with torch.no_grad():
         policy, outcome, margin = net(*test_inputs())

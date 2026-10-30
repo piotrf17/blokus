@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Training for BlokusZero: the network, ONNX export, and training."
 requires-python = ">=3.13"
 dependencies = [
+    "absl-py>=2.5.1",
     "bagz>=0.3.8",
     "grain>=0.2.18",
     "numpy",

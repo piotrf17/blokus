@@ -98,3 +98,21 @@ def count_macs(config: NetConfig) -> int:
         + 2 * c * config.value_hidden
         + config.value_hidden * (NUM_OUTCOMES + 1)
     )
+
+
+def export_onnx(net: Net, path: str) -> None:
+    """Writes `net` to `path` as ONNX, with a dynamic batch size."""
+    net.eval()
+    planes = torch.zeros(2, NUM_PLANES, BOARD_SIZE, BOARD_SIZE)
+    globals_ = torch.zeros(2, NUM_GLOBALS)
+    batch = torch.export.Dim("batch", min=1)
+    torch.onnx.export(
+        net,
+        (planes, globals_),
+        path,
+        input_names=["planes", "globals"],
+        output_names=["policy", "outcome", "margin"],
+        dynamic_shapes=({0: batch}, {0: batch}),
+        dynamo=True,
+        external_data=False,
+    )

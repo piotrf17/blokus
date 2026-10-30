@@ -19,6 +19,7 @@ python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
 # BlokusZero training code (uv project, venv outside the shared folder):
 cd zero/train && UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run pytest
 UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run python export.py --out ../data/models/random_6x32.onnx
+UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run python train.py --data='../data/bootstrap/*.bagz' --out=../data/runs/NAME
 bazel run -c opt //zero:evaluator_benchmark -- --model=$PWD/zero/data/models/random_6x32.onnx
 bazel run -c opt //zero:generate -- --num_games=100 --output=$PWD/zero/data/bootstrap/test
 # After changing zero/training.proto (and before the first pytest run):

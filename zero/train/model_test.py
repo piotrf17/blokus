@@ -8,7 +8,6 @@ import onnxruntime
 import pytest
 import torch
 
-import export
 import model
 
 
@@ -60,7 +59,7 @@ def test_onnx_matches_torch(tmp_path, batch):
         for _ in range(3):
             net(*random_inputs(8))
     path = str(tmp_path / "net.onnx")
-    export.export(net, path)
+    model.export_onnx(net, path)
 
     planes, globals_ = random_inputs(batch)
     with torch.no_grad():
