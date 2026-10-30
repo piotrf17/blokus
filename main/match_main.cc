@@ -1,7 +1,8 @@
 // Plays 2-player games between two configurations, A and B, and reports A's
 // results. Each configuration is an MCTS AI, the random AI, or a BlokusZero
-// network's policy without search. They swap seats every game, so each plays
-// first (BLUE and RED) in half of the games.
+// network, either searching (Gumbel MCTS) or playing its policy alone. They
+// swap seats every game, so each plays first (BLUE and RED) in half of the
+// games.
 //
 //   bazel run -c opt //main:match -- --num_games=100 --a_threads=4
 //   bazel run -c opt //main:match -- --a_player=policy --b_player=random
@@ -34,17 +35,26 @@
 #include "game/player.h"
 #include "zero/evaluator.h"
 #include "zero/policy_ai.h"
+#include "zero/search.h"
+#include "zero/zero_ai.h"
 
 ABSL_FLAG(int, num_games, 20, "Number of games to play. Should be even.");
 ABSL_FLAG(int, seed, 0, "Random number seed for the whole match.");
 
 ABSL_FLAG(std::string, a_player, "mcts",
-          "A's AI: \"mcts\", \"random\" or \"policy\" (the move a network's "
-          "policy likes best, without search). The random AI ignores the "
-          "other flags, and the policy AI all but --a_model.");
+          "A's AI: \"mcts\", \"random\", \"zero\" (a network with Gumbel "
+          "MCTS) or \"policy\" (the move a network's policy likes best, "
+          "without search). The random AI ignores the other flags, the policy "
+          "AI all but --a_model, and the zero AI all but --a_model, "
+          "--a_iterations, --a_considered and --a_gumbel_scale.");
 ABSL_FLAG(std::string, a_model, "",
-          "The ONNX model (from zero/train) for A's policy AI.");
-ABSL_FLAG(int, a_iterations, 1000, "MCTS iterations per move for A.");
+          "The ONNX model (from zero/train) for A's zero or policy AI.");
+ABSL_FLAG(int, a_iterations, 1000,
+          "MCTS iterations, or zero AI simulations, per move for A.");
+ABSL_FLAG(int, a_considered, 32, "Root moves the zero AI considers for A.");
+ABSL_FLAG(double, a_gumbel_scale, 0,
+          "Scale of the zero AI's Gumbel noise for A. 0, the default, is "
+          "deterministic and plays much better; the noise is for self-play.");
 ABSL_FLAG(int, a_threads, 1, "MCTS threads for A.");
 ABSL_FLAG(double, a_c, blokus::MctsOptions().c,
           "UCB1 exploration constant for A.");
@@ -59,10 +69,14 @@ ABSL_FLAG(double, a_margin_scale, blokus::RolloutOptions().margin_scale,
           "The score margin that counts as decisive for A's rewards.");
 
 ABSL_FLAG(std::string, b_player, "mcts",
-          "B's AI: \"mcts\", \"random\" or \"policy\".");
+          "B's AI: \"mcts\", \"random\", \"zero\" or \"policy\".");
 ABSL_FLAG(std::string, b_model, "",
-          "The ONNX model (from zero/train) for B's policy AI.");
-ABSL_FLAG(int, b_iterations, 1000, "MCTS iterations per move for B.");
+          "The ONNX model (from zero/train) for B's zero or policy AI.");
+ABSL_FLAG(int, b_iterations, 1000,
+          "MCTS iterations, or zero AI simulations, per move for B.");
+ABSL_FLAG(int, b_considered, 32, "Root moves the zero AI considers for B.");
+ABSL_FLAG(double, b_gumbel_scale, 0,
+          "Scale of the zero AI's Gumbel noise for B.");
 ABSL_FLAG(int, b_threads, 1, "MCTS threads for B.");
 ABSL_FLAG(double, b_c, blokus::MctsOptions().c,
           "UCB1 exploration constant for B.");
@@ -98,22 +112,31 @@ class TimedPlayer : public Player {
 };
 
 struct Config {
-  // "mcts", "random" or "policy".
+  // "mcts", "random", "zero" or "policy".
   std::string player;
   MctsOptions options;
-  // For the policy AI.
+  // For the zero AI.
+  SearchOptions search;
+  // For the zero and policy AIs.
   std::string model;
   std::unique_ptr<Evaluator> evaluator;
   absl::Duration time;
 };
 
 Config MakeConfig(const std::string& player, MctsOptions options,
-                  const std::string& model) {
-  CHECK(player == "mcts" || player == "random" || player == "policy")
+                  const std::string& model, int num_considered,
+                  double gumbel_scale) {
+  CHECK(player == "mcts" || player == "random" || player == "zero" ||
+        player == "policy")
       << "Unknown player " << player;
-  Config config = {.player = player, .options = options, .model = model};
-  if (player == "policy") {
-    CHECK(!model.empty()) << "The policy AI needs a model";
+  Config config = {.player = player,
+                   .options = options,
+                   .search = {.num_simulations = options.num_iterations,
+                              .num_considered = num_considered,
+                              .gumbel_scale = gumbel_scale},
+                   .model = model};
+  if (player == "zero" || player == "policy") {
+    CHECK(!model.empty()) << "The " << player << " AI needs a model";
     absl::StatusOr<std::unique_ptr<Evaluator>> evaluator =
         Evaluator::Load(model, {});
     CHECK_OK(evaluator.status());
@@ -126,6 +149,11 @@ Config MakeConfig(const std::string& player, MctsOptions options,
 std::string Name(const Config& config) {
   if (config.player == "random") return "random";
   if (config.player == "policy") return absl::StrCat("policy_", config.model);
+  if (config.player == "zero") {
+    return absl::StrCat("zero_s", config.search.num_simulations, "_k",
+                        config.search.num_considered, "_g",
+                        config.search.gumbel_scale, "_", config.model);
+  }
   const MctsOptions& options = config.options;
   std::string name =
       absl::StrCat("mcts_i", options.num_iterations, "_c", options.c, "_t",
@@ -154,7 +182,8 @@ int Main() {
             .margin_scale = absl::GetFlag(FLAGS_a_margin_scale)},
        .num_threads = absl::GetFlag(FLAGS_a_threads),
        .virtual_loss = absl::GetFlag(FLAGS_a_virtual_loss)},
-      absl::GetFlag(FLAGS_a_model));
+      absl::GetFlag(FLAGS_a_model), absl::GetFlag(FLAGS_a_considered),
+      absl::GetFlag(FLAGS_a_gumbel_scale));
   Config b = MakeConfig(
       absl::GetFlag(FLAGS_b_player),
       {.c = absl::GetFlag(FLAGS_b_c),
@@ -165,7 +194,8 @@ int Main() {
             .margin_scale = absl::GetFlag(FLAGS_b_margin_scale)},
        .num_threads = absl::GetFlag(FLAGS_b_threads),
        .virtual_loss = absl::GetFlag(FLAGS_b_virtual_loss)},
-      absl::GetFlag(FLAGS_b_model));
+      absl::GetFlag(FLAGS_b_model), absl::GetFlag(FLAGS_b_considered),
+      absl::GetFlag(FLAGS_b_gumbel_scale));
 
   std::mt19937_64 seeder(absl::GetFlag(FLAGS_seed));
   // A's points: 1 per win, 0.5 per tie.
@@ -186,6 +216,9 @@ int Main() {
         player = std::make_unique<RandomAI>(id, seed);
       } else if (configs[id]->player == "policy") {
         player = std::make_unique<PolicyAI>(id, configs[id]->evaluator.get());
+      } else if (configs[id]->player == "zero") {
+        player = std::make_unique<ZeroAI>(id, configs[id]->evaluator.get(),
+                                          configs[id]->search, seed);
       } else {
         MctsOptions options = configs[id]->options;
         options.seed = seed;

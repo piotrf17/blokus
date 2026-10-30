@@ -256,14 +256,19 @@ Rollouts (see [`analysis/mcts_rollouts.md`](analysis/mcts_rollouts.md)):
 - Best-of-k rollout moves by corner heuristics made MCTS weaker, and were
   removed.
 
-BlokusZero (`main:match --a_player=policy`, 100 games each, against MCTS
-with default options):
+BlokusZero (see [`analysis/blokuszero.md`](analysis/blokuszero.md); 100
+games each against default MCTS):
 - The bootstrap network (6 x 32, trained on 5,000 games of 1000-iteration
-  MCTS self-play; `zero/data/runs/bootstrap-6x32`) playing its policy's top
-  move without search scores 0.96 ± 0.04 against MCTS at 10 iterations,
-  0.83 ± 0.07 at 100, 0.50 ± 0.10 at 300 (mean margin +10.9), and
-  0.08 ± 0.05 at 1000. It is about as strong as 300-iteration MCTS, at
-  about 2 ms a move.
+  MCTS self-play; `zero/data/runs/bootstrap-6x32`) playing its policy alone
+  is about as strong as 300-iteration MCTS (0.50 ± 0.10), at about 2 ms a
+  move.
+- With Gumbel search and no Gumbel noise, it matches 1000-iteration MCTS at
+  32 simulations (0.565–0.585) and beats it 0.71 ± 0.09 at 128 simulations
+  with 32 candidates, in about 1.5x the time. With 16 candidates, 128
+  simulations scores only 0.525.
+- Gumbel noise (`gumbel_scale` 1) makes the same search weaker than the
+  policy alone (0.04–0.155 against 1000-iteration MCTS), so `main:match`
+  defaults to 0 and 32 candidates. The noise is for self-play.
 
 ## Binaries (`main/`)
 
@@ -288,8 +293,11 @@ policy or value function.
 Plays 2-player games between two configurations, A and B, swapping seats
 every game. Each is an MCTS AI (flags `--a_iterations`, `--a_threads`,
 `--a_c`, `--a_virtual_loss`, and the same for B), the random AI
-(`--a_player=random`), or a network's policy without search
-(`--a_player=policy --a_model=PATH.onnx`, a `PolicyAI`). Prints a line after each game with A's running
+(`--a_player=random`), or a BlokusZero network: searching
+(`--a_player=zero --a_model=PATH.onnx`, a `ZeroAI`, with `--a_iterations`
+simulations, `--a_considered` root moves (default 32) and
+`--a_gumbel_scale` (default 0, no noise)) or its policy alone
+(`--a_player=policy`, a `PolicyAI`). Prints a line after each game with A's running
 wins, ties, and losses. At the end it prints A's totals, its mean score
 with a 95% confidence interval, the mean score margin, each side's total
 time in `SelectMove`, and a `result,<A>,<B>,<wins>,<ties>,<losses>` line
@@ -436,6 +444,13 @@ no game logic: tile shapes come from `/api/tiles`, legal placements from
   PyTorch (`zero/testdata/`), and `Evaluate` gives distributions that match
   `Run`, including for a color that has to pass, and the same results batched
   as one at a time.
+- `zero:search_test`: with made-up evaluations, the search spends exactly
+  its simulations, sequential halving gives the expected visit counts, no
+  simulations leave the prior as the policy, it finds the one winning root
+  move for either player to move, a seed makes it reproducible, it passes
+  without moves, and it plays a whole game (reaching finished games); and it
+  runs with the tiny network.
+- `zero:zero_ai_test`: plays a full game against the random AI.
 - `zero:policy_ai_test`: `PolicyAI` plays the largest prior, passes when it
   has no moves, and plays a full game against the random AI.
 - `zero:shard_test`: examples hold `EncodeInputs` as bits, policy targets keep
@@ -526,6 +541,22 @@ In progress; [`zero/PLAN.md`](zero/PLAN.md) has the design and milestones.
 - `zero/policy_ai.{h,cc}` (`zero:policy_ai`): `PolicyAI` plays the legal
   move with the largest prior, without search, as a first strength check of
   a network. AIs share an `Evaluator` that outlives them.
+- `zero/search.{h,cc}` (`zero:search`): `GumbelSearch`, Gumbel MCTS
+  following the paper and DeepMind's mctx library. At the root, Gumbel top-k
+  picks `num_considered` (16) moves, and sequential halving spreads
+  `num_simulations` over them; inside the tree, deterministic selection
+  picks the move whose visit share lags the improved policy (softmax of
+  logits + sigma(completed Q)) the most. Unvisited moves' Q is the node's
+  mixed value, Qs are rescaled to [0, 1] per node, and sigma uses mctx's
+  `c_visit` 50 and `c_scale` 0.1. Leaves get the network's value (win +
+  draw / 2), with no rollouts; finished games get their result. Values are
+  stored for player 0, so it is 2-player only. Each node keeps its own
+  `Game`, after any forced passes. The caller drives it (`NextLeaf`, then
+  `Expand` with the evaluation), so self-play can batch leaves across games;
+  `Search` runs one with an `Evaluator`. The result has the move, the
+  improved policy (the training target), visits and the root's mixed value.
+  There's no tree reuse between moves.
+- `zero/zero_ai.{h,cc}` (`zero:zero_ai`): `ZeroAI` plays the search's move.
 - `zero:evaluator_benchmark` measures evaluations per second by batch size
   and thread count. On this VM (October 2026, random weights): 6 x 32 runs
   about 850/s on 1 thread and 1,700–2,000/s on 4; 6 x 64 about 300 and 460;

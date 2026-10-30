@@ -1,0 +1,18 @@
+# main:match results for analysis/blokuszero.md, on top of commit fbf0f09 plus
+# the uncommitted Gumbel search. 2-player, single thread, 100 games each.
+# Model: bootstrap-6x32 (zero/data/runs/bootstrap-6x32/model.onnx). The
+# first noise-on zero runs predate the _g name part (gumbel_scale 1).
+result,policy_bootstrap-6x32,random,100,0,0
+result,policy_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,8,0,92
+result,policy_bootstrap-6x32,mcts_i100_c0.25_t1_vl3_rb1,83,0,17
+result,policy_bootstrap-6x32,mcts_i10_c0.25_t1_vl3_rb1,96,0,4
+result,policy_bootstrap-6x32,mcts_i300_c0.25_t1_vl3_rb1,50,0,50
+result,zero_s128_k16_g0_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,51,3,46
+result,zero_s128_k32_g0_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,70,1,29
+result,zero_s128_k64_g0_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,70,2,28
+result,zero_s128_k16_g1_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,14,3,83
+result,zero_s32_k16_g0_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,56,1,43
+result,zero_s32_k32_g0_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,58,1,41
+result,zero_s32_k64_g0_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,58,1,41
+result,zero_s64_k16_g1_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,4,0,96
+# Stopped early (gumbel_scale 1): zero_s16_k16_g1 0-0-56, zero_s32_k16_g1 1-0-49.

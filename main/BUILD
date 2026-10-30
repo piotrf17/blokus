@@ -49,6 +49,8 @@ cc_binary(
         "//game:player",
         "//zero:evaluator",
         "//zero:policy_ai",
+        "//zero:search",
+        "//zero:zero_ai",
         "@abseil-cpp//absl/flags:flag",
         "@abseil-cpp//absl/flags:parse",
         "@abseil-cpp//absl/log:check",

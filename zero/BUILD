@@ -104,6 +104,61 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "search",
+    srcs = ["search.cc"],
+    hdrs = ["search.h"],
+    deps = [
+        ":evaluator",
+        "//game",
+        "//game:board",
+        "@abseil-cpp//absl/log:check",
+    ],
+)
+
+cc_test(
+    name = "search_test",
+    srcs = ["search_test.cc"],
+    data = ["testdata/tiny.onnx"],
+    deps = [
+        ":evaluator",
+        ":search",
+        "//game",
+        "//game:board",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status:statusor",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "zero_ai",
+    srcs = ["zero_ai.cc"],
+    hdrs = ["zero_ai.h"],
+    deps = [
+        ":evaluator",
+        ":search",
+        "//game",
+        "//game:board",
+        "//game:player",
+    ],
+)
+
+cc_test(
+    name = "zero_ai_test",
+    srcs = ["zero_ai_test.cc"],
+    data = ["testdata/tiny.onnx"],
+    deps = [
+        ":evaluator",
+        ":zero_ai",
+        "//ai:random",
+        "//game:game_runner",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status:statusor",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_binary(
     name = "evaluator_benchmark",
     srcs = ["evaluator_benchmark.cc"],
