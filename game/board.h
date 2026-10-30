@@ -71,6 +71,20 @@ class Board {
   // The color occupying (row, col), or INVALID if the cell is empty.
   Color At(int row, int col) const { return pieces_[row][col]; }
 
+  // The cells in `row` that `color` may cover: empty and not edge-adjacent to
+  // its own tiles. Bit `col` is set for each such cell. Bits at kNumCols and
+  // above are unspecified.
+  uint32_t AvailableRow(Color color, int row) const {
+    return available_[color][row];
+  }
+
+  // `color`'s corners in `row`: available cells where its next tile can go,
+  // diagonal to one of its tiles (or its start corner). Same layout as
+  // AvailableRow, but the bits at kNumCols and above are 0.
+  uint32_t CornerRow(Color color, int row) const {
+    return slot_rows_[color][row] & available_[color][row];
+  }
+
   // Print the board to stdout, with terminal colors.
   // TODO(piotrf): return a string instead.
   void Print(bool debug = false) const;

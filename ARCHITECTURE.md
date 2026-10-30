@@ -37,7 +37,8 @@ in a browser.
 | `server/` | The web server (JSON API, game configs, sessions, the game manager, HTTP) and the web client (`server/static/`). |
 | `tools/` | Scripts, e.g. `elo.py`, which fits Elo ratings to `main:match` results. |
 | `analysis/` | Write-ups of strength investigations, with their raw data in `analysis/data/`. |
-| `zero/` | BlokusZero, in progress (see `zero/PLAN.md`): `zero/train/` is the Python training code, and `zero/data/` (git-ignored) holds models and training data. |
+| `zero/` | BlokusZero, in progress (see `zero/PLAN.md`): the C++ feature encoder and ONNX Runtime evaluator, `zero/train/` with the Python training code, and `zero/data/` (git-ignored) for models and training data. |
+| `third_party/` | BUILD files for prebuilt dependencies (ONNX Runtime). |
 
 Everything is in `namespace blokus`.
 
@@ -408,6 +409,15 @@ no game logic: tile shapes come from `/api/tiles`, legal placements from
   closing, saving and loading, AI-only games finishing, listing, deleting,
   restarting the manager mid-game, and skipping bad save files.
   `--config=tsan` runs them under ThreadSanitizer.
+- `zero:features_test`: start corners and cells in each frame (hand-checked),
+  global orientation numbering, the opening planes for each mover, planes and
+  globals against the `Board` and `Game` in random games, and, for every
+  legal move in 6 random games, that its policy index is unique and stands
+  for exactly the move's cells in the mover's frame.
+- `zero:evaluator_test`: `Run` on fixed inputs matches outputs computed by
+  PyTorch (`zero/testdata/`), and `Evaluate` gives distributions that match
+  `Run`, including for a color that has to pass, and the same results batched
+  as one at a time.
 - `server:web_server_test`: runs the server on a free port and calls every
   endpoint over HTTP with httplib's client: errors and status codes, an AI
   reply arriving through a long-poll, undo, positions, long-poll timeouts,
@@ -422,6 +432,10 @@ no game logic: tile shapes come from `/api/tiles`, legal placements from
   Central Registry. cpp-httplib pulls in boringssl and zlib, which makes
   the first build slower; our code doesn't use TLS (Caddy can do that). Resolved versions are locked
   in `MODULE.bazel.lock`.
+- ONNX Runtime comes prebuilt (the Linux x64 CPU release), fetched by an
+  `http_archive` in `MODULE.bazel` and wrapped by
+  `third_party/onnxruntime.BUILD`. Its version should match `onnxruntime` in
+  `zero/train/uv.lock`.
 - C++20 (`.bazelrc`, for both target and host builds).
 - `.bazelrc` also turns off `supports_start_end_lib`, because GNU ld 2.47
   segfaults on the `--start-lib/--end-lib` flags Bazel would otherwise pass.
@@ -442,10 +456,32 @@ In progress; [`zero/PLAN.md`](zero/PLAN.md) has the design and milestones.
 - `model.py` is the network: a ResNet (`NetConfig`: blocks, channels) taking
   12 board planes and 88 global features, with a 91 x 400 policy head
   (orientation, top-left cell), win/draw/loss logits and a score margin. The
-  input and policy layouts must match the C++ encoder (milestone 2).
+  input and policy layouts must match `zero/features.h`.
 - `export.py` writes ONNX with a dynamic batch size (random weights without
   `--checkpoint`). `model_test.py` checks shapes, the policy layout, and that
-  ONNX Runtime matches PyTorch.
+  ONNX Runtime matches PyTorch. `make_testdata.py` writes the tiny model and
+  expected outputs in `zero/testdata/` for `zero:evaluator_test`.
+- `zero/features.{h,cc}` (`zero:features`) encodes positions for the
+  network, in the mover's frame: the board rotated so the mover's start
+  corner is at the top left, with colors ordered mover, next, partner,
+  previous. `EncodeInputs` writes the 12 planes (occupied cells, corners via
+  `Board::CornerRow`, available cells via `Board::AvailableRow`, per frame
+  color) and the 88 globals (tiles left, not passed). `PolicyIndex(move)`
+  maps a move to its logit: global orientation (`GlobalOrientation`, 91 in
+  all) rotated into the frame, times 400, plus the frame cell of the
+  bounding box's top-left corner. Rotated orientations come from tables
+  built on first use.
+- `zero/evaluator.{h,cc}` (`zero:evaluator`) runs an exported model with ONNX
+  Runtime. `Evaluator::Run` takes encoded batches and writes outputs straight
+  into the caller's buffers; `Evaluate` takes games and returns an
+  `Evaluation` per game (possible moves with softmaxed priors, win/draw/loss
+  probabilities, margin in points). One `Ort::Env` per process; sessions are
+  thread-safe, with `Options::num_threads` ONNX Runtime threads each.
+- `zero:evaluator_benchmark` measures evaluations per second by batch size
+  and thread count. On this VM (October 2026, random weights): 6 x 32 runs
+  about 850/s on 1 thread and 1,700–2,000/s on 4; 6 x 64 about 300 and 460;
+  10 x 64 about 140 and 300. More than 4 threads doesn't help, batch size
+  barely matters, and `Evaluate`'s encoding and softmax add about 5%.
 
 ## Known issues and sharp edges
 

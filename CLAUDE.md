@@ -18,6 +18,8 @@ bazel run -c opt //main:match -- --a_player=random --b_iterations=100
 python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
 # BlokusZero training code (uv project, venv outside the shared folder):
 cd zero/train && UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run pytest
+UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run python export.py --out ../data/models/random_6x32.onnx
+bazel run -c opt //zero:evaluator_benchmark -- --model=$PWD/zero/data/models/random_6x32.onnx
 ```
 
 - Bazel comes from bazelisk, and the version is pinned in `.bazelversion`.

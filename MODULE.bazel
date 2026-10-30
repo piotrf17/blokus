@@ -7,3 +7,15 @@ bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
 bazel_dep(name = "protobuf", version = "36.2")
 bazel_dep(name = "rules_cc", version = "0.2.27")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# Prebuilt ONNX Runtime (CPU), for BlokusZero inference. Keep the version in
+# step with onnxruntime in zero/train/uv.lock.
+http_archive(
+    name = "onnxruntime",
+    build_file = "//third_party:onnxruntime.BUILD",
+    sha256 = "c849e36a1ef3e22d4ff217b9d1ce4a3cf5b9467b975610913ae959ad5b16bdc9",
+    strip_prefix = "onnxruntime-linux-x64-1.31.1",
+    urls = ["https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-linux-x64-1.31.1.tgz"],
+)

@@ -189,6 +189,21 @@ Each milestone is one reviewed change, or a few, as usual.
 
    **Decision point:** pick the net size, simulations per move, and whether
    20x20 is feasible.
+
+   Measured (October 2026, `zero:evaluator_benchmark`, evaluations per
+   second, best batch size):
+
+   | Net | 1 thread | 4 threads | Self-play games/day at 32 sims |
+   |---|---|---|---|
+   | 6 x 32 | ~850 | ~1,800 | ~70k |
+   | 6 x 64 | ~300 | ~460 | ~18k |
+   | 10 x 64 | ~140 | ~300 | ~12k |
+
+   That's about 170 GFLOPS for the whole VM at every size, so it's
+   compute-bound. Threads past 4 don't help (4 physical cores), batching
+   barely does, and encoding adds about 5%. The games-per-day column assumes
+   70 moves a game and all 4 cores on self-play. That's 3–4x the estimates
+   above, so 20x20 is feasible.
 3. **Supervised bootstrap.**
    - MctsAI exposes root visit counts.
    - `zero:generate` writes shards from MCTS self-play, and `train.py`
