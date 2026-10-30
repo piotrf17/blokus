@@ -1,8 +1,11 @@
 // Plays 2-player games between two configurations, A and B, and reports A's
-// results. Each configuration is an MCTS AI or the random AI. They swap seats
-// every game, so each plays first (BLUE and RED) in half of the games.
+// results. Each configuration is an MCTS AI, the random AI, or a BlokusZero
+// network's policy without search. They swap seats every game, so each plays
+// first (BLUE and RED) in half of the games.
 //
 //   bazel run -c opt //main:match -- --num_games=100 --a_threads=4
+//   bazel run -c opt //main:match -- --a_player=policy --b_player=random
+//     --a_model=$PWD/zero/data/runs/bootstrap-6x32/model.onnx
 //
 // It prints a line after each game with A's running wins-ties-losses. The
 // last line of output is machine-readable, for tools/elo.py:
@@ -18,6 +21,7 @@
 #include "absl/flags/parse.h"
 #include "absl/log/check.h"
 #include "absl/log/initialize.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/time/clock.h"
@@ -28,13 +32,18 @@
 #include "game/game.h"
 #include "game/game_runner.h"
 #include "game/player.h"
+#include "zero/evaluator.h"
+#include "zero/policy_ai.h"
 
 ABSL_FLAG(int, num_games, 20, "Number of games to play. Should be even.");
 ABSL_FLAG(int, seed, 0, "Random number seed for the whole match.");
 
 ABSL_FLAG(std::string, a_player, "mcts",
-          "A's AI: \"mcts\" or \"random\". The random AI ignores the other "
-          "flags.");
+          "A's AI: \"mcts\", \"random\" or \"policy\" (the move a network's "
+          "policy likes best, without search). The random AI ignores the "
+          "other flags, and the policy AI all but --a_model.");
+ABSL_FLAG(std::string, a_model, "",
+          "The ONNX model (from zero/train) for A's policy AI.");
 ABSL_FLAG(int, a_iterations, 1000, "MCTS iterations per move for A.");
 ABSL_FLAG(int, a_threads, 1, "MCTS threads for A.");
 ABSL_FLAG(double, a_c, blokus::MctsOptions().c,
@@ -49,7 +58,10 @@ ABSL_FLAG(double, a_margin_weight, blokus::RolloutOptions().margin_weight,
 ABSL_FLAG(double, a_margin_scale, blokus::RolloutOptions().margin_scale,
           "The score margin that counts as decisive for A's rewards.");
 
-ABSL_FLAG(std::string, b_player, "mcts", "B's AI: \"mcts\" or \"random\".");
+ABSL_FLAG(std::string, b_player, "mcts",
+          "B's AI: \"mcts\", \"random\" or \"policy\".");
+ABSL_FLAG(std::string, b_model, "",
+          "The ONNX model (from zero/train) for B's policy AI.");
 ABSL_FLAG(int, b_iterations, 1000, "MCTS iterations per move for B.");
 ABSL_FLAG(int, b_threads, 1, "MCTS threads for B.");
 ABSL_FLAG(double, b_c, blokus::MctsOptions().c,
@@ -86,19 +98,34 @@ class TimedPlayer : public Player {
 };
 
 struct Config {
-  bool random = false;
+  // "mcts", "random" or "policy".
+  std::string player;
   MctsOptions options;
+  // For the policy AI.
+  std::string model;
+  std::unique_ptr<Evaluator> evaluator;
   absl::Duration time;
 };
 
-Config MakeConfig(const std::string& player, MctsOptions options) {
-  CHECK(player == "mcts" || player == "random") << "Unknown player " << player;
-  return {.random = player == "random", .options = options};
+Config MakeConfig(const std::string& player, MctsOptions options,
+                  const std::string& model) {
+  CHECK(player == "mcts" || player == "random" || player == "policy")
+      << "Unknown player " << player;
+  Config config = {.player = player, .options = options, .model = model};
+  if (player == "policy") {
+    CHECK(!model.empty()) << "The policy AI needs a model";
+    absl::StatusOr<std::unique_ptr<Evaluator>> evaluator =
+        Evaluator::Load(model, {});
+    CHECK_OK(evaluator.status());
+    config.evaluator = *std::move(evaluator);
+  }
+  return config;
 }
 
 // A name identifying the configuration, for the machine-readable result.
 std::string Name(const Config& config) {
-  if (config.random) return "random";
+  if (config.player == "random") return "random";
+  if (config.player == "policy") return absl::StrCat("policy_", config.model);
   const MctsOptions& options = config.options;
   std::string name =
       absl::StrCat("mcts_i", options.num_iterations, "_c", options.c, "_t",
@@ -126,7 +153,8 @@ int Main() {
             .margin_weight = absl::GetFlag(FLAGS_a_margin_weight),
             .margin_scale = absl::GetFlag(FLAGS_a_margin_scale)},
        .num_threads = absl::GetFlag(FLAGS_a_threads),
-       .virtual_loss = absl::GetFlag(FLAGS_a_virtual_loss)});
+       .virtual_loss = absl::GetFlag(FLAGS_a_virtual_loss)},
+      absl::GetFlag(FLAGS_a_model));
   Config b = MakeConfig(
       absl::GetFlag(FLAGS_b_player),
       {.c = absl::GetFlag(FLAGS_b_c),
@@ -136,7 +164,8 @@ int Main() {
             .margin_weight = absl::GetFlag(FLAGS_b_margin_weight),
             .margin_scale = absl::GetFlag(FLAGS_b_margin_scale)},
        .num_threads = absl::GetFlag(FLAGS_b_threads),
-       .virtual_loss = absl::GetFlag(FLAGS_b_virtual_loss)});
+       .virtual_loss = absl::GetFlag(FLAGS_b_virtual_loss)},
+      absl::GetFlag(FLAGS_b_model));
 
   std::mt19937_64 seeder(absl::GetFlag(FLAGS_seed));
   // A's points: 1 per win, 0.5 per tie.
@@ -153,8 +182,10 @@ int Main() {
     for (int id = 0; id < 2; ++id) {
       const uint64_t seed = seeder();
       std::unique_ptr<Player> player;
-      if (configs[id]->random) {
+      if (configs[id]->player == "random") {
         player = std::make_unique<RandomAI>(id, seed);
+      } else if (configs[id]->player == "policy") {
+        player = std::make_unique<PolicyAI>(id, configs[id]->evaluator.get());
       } else {
         MctsOptions options = configs[id]->options;
         options.seed = seed;

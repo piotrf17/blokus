@@ -75,6 +75,35 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "policy_ai",
+    srcs = ["policy_ai.cc"],
+    hdrs = ["policy_ai.h"],
+    deps = [
+        ":evaluator",
+        "//game",
+        "//game:board",
+        "//game:player",
+    ],
+)
+
+cc_test(
+    name = "policy_ai_test",
+    srcs = ["policy_ai_test.cc"],
+    data = ["testdata/tiny.onnx"],
+    deps = [
+        ":evaluator",
+        ":policy_ai",
+        "//ai:random",
+        "//game",
+        "//game:board",
+        "//game:game_runner",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status:statusor",
+        "@googletest//:gtest_main",
+    ],
+)
+
 cc_binary(
     name = "evaluator_benchmark",
     srcs = ["evaluator_benchmark.cc"],
