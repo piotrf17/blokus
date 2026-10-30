@@ -37,6 +37,7 @@ in a browser.
 | `server/` | The web server (JSON API, game configs, sessions, the game manager, HTTP) and the web client (`server/static/`). |
 | `tools/` | Scripts, e.g. `elo.py`, which fits Elo ratings to `main:match` results. |
 | `analysis/` | Write-ups of strength investigations, with their raw data in `analysis/data/`. |
+| `zero/` | BlokusZero, in progress (see `zero/PLAN.md`): `zero/train/` is the Python training code, and `zero/data/` (git-ignored) holds models and training data. |
 
 Everything is in `namespace blokus`.
 
@@ -429,6 +430,22 @@ no game logic: tile shapes come from `/api/tiles`, legal placements from
 - Logging, flags, and CHECK come from Abseil (glog was removed). `VLOG` calls
   are commented out with "re-enable once absl supports vlog"; newer Abseil
   has `VLOG`.
+
+## BlokusZero (`zero/`)
+
+In progress; [`zero/PLAN.md`](zero/PLAN.md) has the design and milestones.
+
+- `zero/train/` is a uv project (PyTorch on CPU, ONNX, ONNX Runtime), outside
+  Bazel. Its venv is `~/venvs/blokuszero`, on the VM disk rather than the
+  shared project folder, so uv commands need
+  `UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero`.
+- `model.py` is the network: a ResNet (`NetConfig`: blocks, channels) taking
+  12 board planes and 88 global features, with a 91 x 400 policy head
+  (orientation, top-left cell), win/draw/loss logits and a score margin. The
+  input and policy layouts must match the C++ encoder (milestone 2).
+- `export.py` writes ONNX with a dynamic batch size (random weights without
+  `--checkpoint`). `model_test.py` checks shapes, the policy layout, and that
+  ONNX Runtime matches PyTorch.
 
 ## Known issues and sharp edges
 

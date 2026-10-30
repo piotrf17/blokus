@@ -5,3 +5,5 @@ bazel-*
 .claude/worktrees/
 games/
 zero/data/
+__pycache__/
+.pytest_cache/

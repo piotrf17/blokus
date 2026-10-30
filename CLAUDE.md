@@ -16,6 +16,8 @@ bazel run -c opt //main:train -- --num_games=10 --num_players=2 --stderrthreshol
 bazel run -c opt //main:match -- --num_games=100 --a_c=0.7   # A vs B strength
 bazel run -c opt //main:match -- --a_player=random --b_iterations=100
 python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
+# BlokusZero training code (uv project, venv outside the shared folder):
+cd zero/train && UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run pytest
 ```
 
 - Bazel comes from bazelisk, and the version is pinned in `.bazelversion`.
@@ -36,6 +38,9 @@ python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
   GNU ld 2.47 segfaults on `--start-lib`. Leave that line in.
 - System libraries (installed machine-wide, not through Bazel):
   `libgoogle-perftools-dev`, for `-lprofiler`.
+- The project folder is shared from the host, and doesn't count against the
+  VM's small disk. Large data (models, self-play data) goes in `zero/data/`
+  (git-ignored); venvs go outside the project folder, under `~/venvs/`.
 - The dev environment is a VM. If a tool or library is missing, **ask the
   user to install it** instead of installing it yourself.
 - Benchmark numbers vary with machine load. Don't run the benchmark while a
