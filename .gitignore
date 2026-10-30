@@ -4,3 +4,4 @@ bazel-*
 *.local.md
 .claude/worktrees/
 games/
+zero/data/
