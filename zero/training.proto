@@ -1,0 +1,46 @@
+// Training data for the BlokusZero network.
+//
+// After changing this file, regenerate the Python code:
+//   bazel run @protobuf//:protoc -- --proto_path=$PWD/zero \
+//     --python_out=$PWD/zero/train training.proto
+
+syntax = "proto3";
+
+package blokus;
+
+// The result of a game for one player.
+enum Outcome {
+  // The values are the indices of the network's outcome head.
+  WIN = 0;
+  DRAW = 1;
+  LOSS = 2;
+}
+
+// One position from self-play, with the network's inputs in the frame of the
+// color to move (see EncodeInputs in zero/features.h) and its targets.
+// Shards are Bagz files of serialized TrainingExamples (see
+// zero/shard.h).
+message TrainingExample {
+  // The input planes (kPlanesSize values) and globals (kNumGlobals values),
+  // which are all 0 or 1, as bits. Value i is bit 7 - i % 8 of byte i / 8,
+  // the order of numpy.unpackbits.
+  bytes planes = 1;
+  bytes globals = 2;
+
+  // The policy target: the probabilities of the most likely moves (at most
+  // kMaxTargets), by policy index (see PolicyIndex), largest first. They sum
+  // to 1.
+  repeated uint32 target_index = 3;
+  repeated float target_prob = 4;
+
+  // The game's result for the mover's player, and that player's final score
+  // minus the best other player's.
+  Outcome outcome = 5;
+  sint32 margin = 6;
+
+  // The color to move (as in game/defs.h), the number of moves played
+  // before this position (passes included), and the number of players.
+  uint32 color = 7;
+  uint32 move_number = 8;
+  uint32 num_players = 9;
+}

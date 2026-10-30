@@ -9,6 +9,7 @@
 #include <random>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "game/player.h"
 
@@ -80,6 +81,11 @@ struct MctsOptions {
   // helpful (see analysis/mcts_tuning.md).
   int virtual_loss = 3;
 
+  // While fewer than this many moves have been played in the game, picks a
+  // move at random in proportion to the root's visit counts, instead of the
+  // most visited. Self-play uses it to vary the openings.
+  int num_sampled_moves = 0;
+
   // Seed for the AI's random number generator. If unset, seeds from
   // std::random_device. With a seed and num_threads = 1, the AI's moves are
   // reproducible. With more threads they aren't, since threads interleave
@@ -89,6 +95,16 @@ struct MctsOptions {
 
 struct Node;
 
+// Search statistics for one of the root's moves.
+struct MoveStats {
+  Move move;
+  // The number of iterations through the move, including ones from earlier
+  // searches whose tree was reused.
+  int visits = 0;
+  // The total reward of those iterations for the player making the move.
+  double wins = 0;
+};
+
 // An AI player that uses Monte Carlo Tree Search (MCTS).
 class MctsAI : public Player {
  public:
@@ -96,6 +112,11 @@ class MctsAI : public Player {
   ~MctsAI();
 
   Move SelectMove(const Game& board) override;
+
+  // The statistics of every possible move at the root of the last
+  // SelectMove's search, in Game::PossibleMoves order. When there was only
+  // one possible move (or a pass), it has no visits.
+  const std::vector<MoveStats>& root_stats() const { return root_stats_; }
 
  private:
   void Iteration(Game game, std::mt19937_64& rng);
@@ -106,6 +127,8 @@ class MctsAI : public Player {
 
   std::mutex tree_mutex_;
   std::unique_ptr<Node> tree_;
+
+  std::vector<MoveStats> root_stats_;
 };
   
 }  // namespace blokus

@@ -317,7 +317,9 @@ Move MctsAI::SelectMove(const Game& game) {
   // spend some time planning for future moves, but:
   //   1) we're not playing in a timed environment.
   //   2) it's rare that a single move will lead to many future moves.
+  root_stats_.clear();
   if (tree_->children.size() == 1) {
+    root_stats_.push_back({.move = tree_->children[0]->move});
     tree_ = std::move(tree_->children[0]);
     tree_->parent = nullptr;
     return tree_->move;
@@ -341,6 +343,21 @@ Move MctsAI::SelectMove(const Game& game) {
     for (std::thread& worker : workers) {
       worker.join();
     }
+  }
+
+  for (const std::unique_ptr<Node>& child : tree_->children) {
+    root_stats_.push_back(
+        {.move = child->move, .visits = child->visits, .wins = child->wins});
+  }
+
+  // Early in the game, sample a move in proportion to visits.
+  if (num_moves < options_.num_sampled_moves) {
+    std::vector<int> visits;
+    for (const MoveStats& stats : root_stats_) visits.push_back(stats.visits);
+    std::discrete_distribution<int> sample(visits.begin(), visits.end());
+    tree_ = std::move(tree_->children[sample(rng_)]);
+    tree_->parent = nullptr;
+    return tree_->move;
   }
 
   // Pick the best move.

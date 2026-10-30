@@ -20,6 +20,9 @@ python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
 cd zero/train && UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run pytest
 UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run python export.py --out ../data/models/random_6x32.onnx
 bazel run -c opt //zero:evaluator_benchmark -- --model=$PWD/zero/data/models/random_6x32.onnx
+bazel run -c opt //zero:generate -- --num_games=100 --output=$PWD/zero/data/bootstrap/test
+# After changing zero/training.proto (and before the first pytest run):
+bazel run @protobuf//:protoc -- --proto_path=$PWD/zero --python_out=$PWD/zero/train training.proto
 ```
 
 - Bazel comes from bazelisk, and the version is pinned in `.bazelversion`.

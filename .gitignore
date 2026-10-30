@@ -7,3 +7,5 @@ games/
 zero/data/
 __pycache__/
 .pytest_cache/
+# Generated from zero/training.proto (see the command there).
+zero/train/*_pb2.py

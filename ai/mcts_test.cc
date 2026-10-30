@@ -26,6 +26,7 @@ using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Gt;
 using ::testing::IsEmpty;
+using ::testing::Le;
 using ::testing::Ne;
 using ::testing::Not;
 using ::testing::SizeIs;
@@ -304,6 +305,69 @@ TEST(MctsAITest, OpponentPassesEarly) {
   const Move red = ai.SelectMove(game);
   EXPECT_THAT(red.color, Eq(RED));
   EXPECT_TRUE(game.MakeMove(red)) << red.DebugString();
+}
+
+// The root stats list every possible move, and the visits add up to the
+// iterations of a fresh tree. The chosen move is the most visited.
+TEST(MctsAITest, RootStats) {
+  Game game(2);
+  MctsAI ai(0, SmallOptions(300, /*seed=*/9));
+  const Move move = ai.SelectMove(game);
+  const std::vector<MoveStats>& stats = ai.root_stats();
+  const std::vector<Move> possible = game.PossibleMoves();
+  ASSERT_THAT(stats, SizeIs(possible.size()));
+  int total = 0;
+  int most = 0;
+  for (int i = 0; i < static_cast<int>(stats.size()); ++i) {
+    EXPECT_THAT(stats[i].move, Eq(possible[i]));
+    EXPECT_THAT(stats[i].wins, Le(stats[i].visits));
+    total += stats[i].visits;
+    most = std::max(most, stats[i].visits);
+  }
+  EXPECT_THAT(total, Eq(300));
+  for (const MoveStats& s : stats) {
+    if (s.move == move) EXPECT_THAT(s.visits, Eq(most));
+  }
+}
+
+// A forced pass is the only move, with no visits.
+TEST(MctsAITest, RootStatsForPass) {
+  Game game(2);
+  ASSERT_TRUE(game.MakeMove(Move::EmptyMove(BLUE)));
+  for (int i = 0; i < 3; ++i) ASSERT_TRUE(game.MakeMove(game.PossibleMove(0)));
+  MctsAI ai(0, SmallOptions(100, /*seed=*/1));
+  EXPECT_THAT(ai.SelectMove(game), Eq(Move::EmptyMove(BLUE)));
+  ASSERT_THAT(ai.root_stats(), SizeIs(1));
+  EXPECT_THAT(ai.root_stats()[0].move, Eq(Move::EmptyMove(BLUE)));
+  EXPECT_THAT(ai.root_stats()[0].visits, Eq(0));
+}
+
+// Sampled moves are always visited, but aren't always the most visited.
+TEST(MctsAITest, SampledMoves) {
+  int num_not_most_visited = 0;
+  for (uint64_t seed = 0; seed < 20; ++seed) {
+    Game game(2);
+    MctsOptions options = SmallOptions(200, seed);
+    options.num_sampled_moves = 1;
+    MctsAI ai(0, options);
+    const Move move = ai.SelectMove(game);
+    int most = 0;
+    int visits = 0;
+    for (const MoveStats& stats : ai.root_stats()) {
+      most = std::max(most, stats.visits);
+      if (stats.move == move) visits = stats.visits;
+    }
+    EXPECT_THAT(visits, Gt(0));
+    num_not_most_visited += visits < most;
+  }
+  EXPECT_THAT(num_not_most_visited, Gt(0));
+}
+
+// Sampling stops after num_sampled_moves, and full games still work.
+TEST(MctsAITest, PlaysFullGameWithSampledMoves) {
+  MctsOptions options = SmallOptions(10, /*seed=*/7);
+  options.num_sampled_moves = 8;
+  EXPECT_THAT(PlayMctsGame(2, options), SizeIs(Gt(40)));
 }
 
 }  // namespace

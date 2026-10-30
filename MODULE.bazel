@@ -7,6 +7,7 @@ bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.2")
 bazel_dep(name = "protobuf", version = "36.2")
 bazel_dep(name = "rules_cc", version = "0.2.27")
+bazel_dep(name = "zstd", version = "1.5.7.bcr.3")
 
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -18,4 +19,15 @@ http_archive(
     sha256 = "c849e36a1ef3e22d4ff217b9d1ce4a3cf5b9467b975610913ae959ad5b16bdc9",
     strip_prefix = "onnxruntime-linux-x64-1.31.1",
     urls = ["https://github.com/microsoft/onnxruntime/releases/download/v1.31.1/onnxruntime-linux-x64-1.31.1.tgz"],
+)
+
+# Bagz, for BlokusZero training data. Upstream builds with CMake, so
+# third_party/bagz.BUILD builds its C++ core. zero/train reads the files with
+# the bagz wheel (0.3.8; there's no 0.3.8 tag, and the format is the same).
+http_archive(
+    name = "bagz",
+    build_file = "//third_party:bagz.BUILD",
+    sha256 = "4c93e814a8891df1558390b75d4be8d736e068c4e3c15b2ebaf92483f20b3259",
+    strip_prefix = "bagz-0.3.7",
+    urls = ["https://github.com/google-deepmind/bagz/archive/refs/tags/v0.3.7.tar.gz"],
 )

@@ -4,6 +4,8 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -87,5 +89,67 @@ cc_binary(
         "@abseil-cpp//absl/strings",
         "@abseil-cpp//absl/strings:str_format",
         "@abseil-cpp//absl/types:span",
+    ],
+)
+
+proto_library(
+    name = "training_proto",
+    srcs = ["training.proto"],
+)
+
+cc_proto_library(
+    name = "training_cc_proto",
+    deps = [":training_proto"],
+)
+
+cc_library(
+    name = "shard",
+    srcs = ["shard.cc"],
+    hdrs = ["shard.h"],
+    deps = [
+        ":features",
+        ":training_cc_proto",
+        "//game",
+        "//game:board",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/types:span",
+        "@bagz",
+    ],
+)
+
+cc_test(
+    name = "shard_test",
+    srcs = ["shard_test.cc"],
+    deps = [
+        ":features",
+        ":shard",
+        ":training_cc_proto",
+        "//game",
+        "//game:board",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/types:span",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "generate",
+    srcs = ["generate_main.cc"],
+    deps = [
+        ":shard",
+        ":training_cc_proto",
+        "//ai:mcts",
+        "//game",
+        "@abseil-cpp//absl/flags:flag",
+        "@abseil-cpp//absl/flags:parse",
+        "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:check",
+        "@abseil-cpp//absl/log:globals",
+        "@abseil-cpp//absl/log:initialize",
+        "@abseil-cpp//absl/strings:str_format",
+        "@abseil-cpp//absl/time",
     ],
 )

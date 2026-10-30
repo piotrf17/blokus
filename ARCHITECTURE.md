@@ -218,10 +218,15 @@ Takes an optional seed for its `std::mt19937_64`.
   color passed while it still had moves), it starts a new tree.
 - **Move choice**: the most-visited root child, breaking ties by total
   reward and then randomly. If there's only one legal move it's played
-  immediately.
+  immediately. While fewer than `num_sampled_moves` (default 0) moves have
+  been played in the game, it instead samples a child in proportion to
+  visits, which self-play uses to vary openings.
+- `root_stats()` returns each root move's visits and wins from the last
+  `SelectMove` (no visits when the move was forced). `zero:generate` records
+  them as policy targets.
 - `MctsOptions`: `c` (0.25), `num_iterations`, `num_rollouts_per_iteration`,
   `rollout` (`RolloutOptions`: `size_bias` 1, `margin_weight` 0,
-  `margin_scale` 10), `num_threads`, `virtual_loss`,
+  `margin_scale` 10), `num_threads`, `virtual_loss`, `num_sampled_moves`,
   `seed`.
 
 ### Playing strength
@@ -392,7 +397,10 @@ no game logic: tile shapes come from `/api/tiles`, legal placements from
   legal, and full games with tree reuse for 2 and 4 players and with 4
   threads finish. Also checks that the AI copes when an opponent passes while
   it still has moves, and that virtual loss leaves single-threaded play
-  unchanged and works with 4 threads. The AIs use only 10 to 200
+  unchanged and works with 4 threads, that root stats list every move with
+  visits summing to the iterations (and none for a forced pass), and that
+  sampled moves are visited but not always the most visited. The AIs use
+  only 10 to 200
   iterations, so these check correctness, not playing strength. A seeded single-threaded game is
   checked to be reproducible.
 - `ai:random_test`: full games, passing with no moves, and reproducibility.
@@ -418,6 +426,17 @@ no game logic: tile shapes come from `/api/tiles`, legal placements from
   PyTorch (`zero/testdata/`), and `Evaluate` gives distributions that match
   `Run`, including for a color that has to pass, and the same results batched
   as one at a time.
+- `zero:shard_test`: examples hold `EncodeInputs` as bits, policy targets keep
+  the largest weights normalized (uniform without weights), results are for
+  the mover's player in 2- and 4-player games, shards round-trip (and
+  writing replaces a shard), empty shards work, and missing or corrupt files
+  fail to read.
+- `zero/train/` (`uv run pytest`, not Bazel): `model_test.py` checks the
+  network and its ONNX export; `data_test.py` reads
+  `zero/testdata/selfplay.bagz` (one game from `zero:generate`) with the
+  `bagz` package, and checks the shapes, targets, results, that each color's
+  occupied cells match the tiles it has played, concatenated shards, and
+  shuffled batches through Grain.
 - `server:web_server_test`: runs the server on a free port and calls every
   endpoint over HTTP with httplib's client: errors and status codes, an AI
   reply arriving through a long-poll, undo, positions, long-poll timeouts,
@@ -436,6 +455,13 @@ no game logic: tile shapes come from `/api/tiles`, legal placements from
   `http_archive` in `MODULE.bazel` and wrapped by
   `third_party/onnxruntime.BUILD`. Its version should match `onnxruntime` in
   `zero/train/uv.lock`.
+- Bagz has no Bazel build upstream (it uses CMake), so an `http_archive` in
+  `MODULE.bazel` fetches a tagged release and `third_party/bagz.BUILD` builds
+  its C++ core (reader, writer, local file system) as one `cc_library`,
+  without the GCS file system or Python bindings. It needs only Abseil and
+  `zstd` from the BCR.
+- `bazel mod graph` fails on protobuf's rules_rust extension, because the
+  repo has no root `BUILD` file. Builds aren't affected.
 - C++20 (`.bazelrc`, for both target and host builds).
 - `.bazelrc` also turns off `supports_start_end_lib`, because GNU ld 2.47
   segfaults on the `--start-lib/--end-lib` flags Bazel would otherwise pass.
@@ -482,6 +508,35 @@ In progress; [`zero/PLAN.md`](zero/PLAN.md) has the design and milestones.
   about 850/s on 1 thread and 1,700–2,000/s on 4; 6 x 64 about 300 and 460;
   10 x 64 about 140 and 300. More than 4 threads doesn't help, batch size
   barely matters, and `Evaluate`'s encoding and softmax add about 5%.
+- Training data is [Bagz](https://github.com/google-deepmind/bagz) files
+  ("shards", `.bagz`) of serialized `TrainingExample`s
+  (`zero/training.proto`): the inputs as bits, a policy target of up to 32
+  (policy index, probability) pairs, and the mover's player's outcome and
+  margin. A Bagz file is each record as its own zstd frame, back to back,
+  then every record's end offset as a little-endian uint64, so any record
+  can be read on its own and Grain can shuffle across all shards. That's
+  about 480 bytes an example. A shard is written all at once, since the
+  offsets go at the end.
+- `zero/shard.{h,cc}` (`zero:shard`): `MakeExample` encodes a position and
+  target, `SetResult` fills in the result once the game ends, and
+  `WriteShard`/`ReadShard` do the file I/O with Bagz's C++ `BagzWriter` and
+  `BagzReader`. `WriteShard` writes `<path>.tmp` and renames it, so readers
+  never see a partial shard. `data_test.py` reads a C++-written shard with
+  the `bagz` Python package.
+- `data.py`: `parse_example` decodes one serialized example to numpy arrays
+  (a Grain map), `dataset(paths)` concatenates `bagz.Reader`s into a Grain
+  `MapDataset`, and `to_tensors` converts a batch. It imports `training_pb2.py`, which is
+  generated by Bazel's protoc and git-ignored (the command is in
+  `training.proto`). Reading an example costs about 10 µs and parsing it
+  about 85 µs on one thread. The `bagz` wheel prints nanobind "leaked"
+  warnings at exit, which are harmless.
+- `zero:generate` plays MCTS self-play games in parallel (one game per
+  thread, single-threaded MCTS) and records an example for every move with
+  a choice, with the root visit counts as the target. The first 8 moves are
+  sampled in proportion to visits. Every `--games_per_shard` (500) games it
+  writes a shard, `<output>-00000.bagz` and so on, so a crash loses
+  at most one shard. At 1000 iterations on 8 threads it makes about 1,800
+  games (115k positions) an hour.
 
 ## Known issues and sharp edges
 

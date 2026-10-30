@@ -111,17 +111,22 @@ position than single evaluations.
 **One encoder, in C++.** Feature encoding lives only in C++. Self-play writes
 the encoded positions, and Python never needs the game engine.
 
-**The shard format** is fixed-size binary records that numpy reads with
-`np.fromfile` and a structured dtype:
+**The shard format** is [Bagz](https://github.com/google-deepmind/bagz)
+files of serialized `TrainingExample` protos (`zero/training.proto`), each
+record its own zstd frame, so Grain can read them with random access and
+shuffle globally. Each example has:
 - planes as bits (12 x 400 bits = 600 bytes),
-- the global vector,
-- the legal-move mask, stored as the move indices,
-- a sparse policy target (the top 32 moves, as uint16 index and float16
+- the global vector, as bits,
+- a sparse policy target (the top 32 moves, as policy index and
   probability),
-- the outcome and the margin.
+- the outcome and the margin, plus the color, move number and player count.
 
-That's about 1 KB per position. A window of 1M positions is about 1 GB on
-disk.
+That's about 480 bytes per position compressed. A window of 1M positions is
+about 500 MB on disk.
+There's no legal-move mask: training uses a softmax over all 36,400
+logits, as AlphaZero does, and the network learns to leave illegal moves
+alone. Masking can come later if it turns out to matter; it would need the
+moves stored (up to ~1,000 in early positions) or the engine in Python.
 
 **The loop:**
 - `zero:selfplay` (C++) writes shards and loads the newest ONNX model as it
@@ -132,7 +137,9 @@ disk.
 
 **The bootstrap** is supervised learning from today's MCTS. Self-play
 between MCTS players at 1000 iterations, recording each move's root visit
-distribution, gives about 1500 games (100k positions) an hour on 8 cores.
+distribution, gives about 1500 games (100k positions) an hour on 8 cores
+(measured: about 1,800 games and 115k positions an hour with
+`zero:generate`).
 That's enough to train a first network that already plays sensibly, so RL
 doesn't start from random play.
 

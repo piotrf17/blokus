@@ -4,10 +4,14 @@ version = "0.1.0"
 description = "Training for BlokusZero: the network, ONNX export, and training."
 requires-python = ">=3.13"
 dependencies = [
+    "bagz>=0.3.8",
+    "grain>=0.2.18",
     "numpy",
     "onnx",
     "onnxruntime",
     "onnxscript",
+    # Matches protobuf in MODULE.bazel, whose protoc generates training_pb2.py.
+    "protobuf==7.36.2",
     "torch",
 ]
 
