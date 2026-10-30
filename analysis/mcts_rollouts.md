@@ -8,16 +8,17 @@ a 95% CI. Results are in [`data/mcts_rollouts.txt`](data/mcts_rollouts.txt).
 
 - **Favoring larger tiles** (`RolloutOptions::size_bias`, beta) helps a lot
   at 1000 iterations: beta 1 or 2 scores 0.65 against uniform rollouts. At
-  10k the gain shrinks to 0.535 ± 0.07, not significant. It costs nothing in
-  speed.
+  10k the gain mostly disappears: 0.52 ± 0.05 over 424 games, not
+  significant. It costs nothing in speed.
 - **Score-margin rewards** (`margin_weight` 0.5, `margin_scale` 10) help a
   little on top of that at 1000 iterations (0.57 ± 0.06 over 300 games), and
   make MCTS win by much larger margins. Also free.
 - **Both together at 10k** (beta 1, `margin_weight` 0.5) beat the default
   0.585 ± 0.046 over 440 games (about +60 Elo), winning by 16 points on
-  average. Against beta 1 alone, margin rewards score 0.47 ± 0.065 at 10k,
-  so the win-rate gain comes from the size bias; margin rewards only make
-  the wins bigger.
+  average. But beta 1 alone scores only 0.52 against the default, and
+  margin rewards score 0.47 ± 0.065 against beta 1 alone, so the combined
+  result is probably partly luck. Margin rewards make the wins bigger, not
+  more frequent.
 - **Best-of-k by corner heuristics** (`num_candidates`) makes MCTS clearly
   weaker, and slower. Greedier rollouts give worse value estimates. The
   code was removed afterwards.
@@ -45,7 +46,13 @@ readily as the big ones.
 | A's beta | Wins-ties-losses | A's score |
 |---|---|---|
 | 1 | 106-2-92 | 0.535 ± 0.07 |
+| 1 (confirmation, new seeds) | 112-5-107 | 0.51 ± 0.065 |
+| 1 (all, 424 games) | 218-7-199 | 0.52 ± 0.048 |
 | 2 | 53-1-46 (stopped at 100 games) | 0.535 ± 0.10 |
+
+At 10k, beta 1 is no worse than uniform and perhaps slightly better. The
+mean margin in the confirmation was about 0. It is the default because it
+clearly helps at low iteration counts and costs nothing.
 
 Rollout speed is unchanged (`BM_Rollout` about 245 µs at beta 0, 1 and 4).
 Too strong a bias (beta 4) loses most of the gain: the rollouts become

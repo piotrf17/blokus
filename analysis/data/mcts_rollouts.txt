@@ -51,3 +51,11 @@ result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,15,0
 result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,13,2,13
 result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,11,0,17
 result,mcts_i10000_c0.25_t1_vl3_rb1_mw0.5_ms10,mcts_i10000_c0.25_t1_vl3_rb1,13,0,15
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,12,0,16
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,19,0,9
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,16,0,12
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,13,1,14
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,12,0,16
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,16,1,11
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,12,0,16
+result,mcts_i10000_c0.25_t1_vl3_rb1,mcts_i10000_c0.25_t1_vl3,12,3,13

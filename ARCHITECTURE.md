@@ -239,7 +239,8 @@ Tuning (see [`analysis/mcts_tuning.md`](analysis/mcts_tuning.md)):
 
 Rollouts (see [`analysis/mcts_rollouts.md`](analysis/mcts_rollouts.md)):
 - Favoring larger tiles (`size_bias` 1) scores 0.65 against uniform
-  rollouts at 1000 iterations, but only 0.535 ± 0.07 at 10k.
+  rollouts at 1000 iterations, but only 0.52 ± 0.048 at 10k (424 games, not
+  significant).
 - Adding score-margin rewards (`margin_weight` 0.5) to that beats the
   default 0.585 ± 0.046 at 10k (440 games), and wins by 16 points on
   average. Against `size_bias` 1 alone, margin rewards score 0.47 ± 0.065
