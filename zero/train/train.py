@@ -202,7 +202,10 @@ def main(argv: list[str]) -> None:
     log_every = _LOG_EVERY.value
     step = 0
     for epoch in range(_EPOCHS.value):
+        # Sums of the losses since the last log, over num_steps steps. The
+        # first log of an epoch can cover fewer than log_every steps.
         sums = {}
+        num_steps = 0
         start = time.time()
         for batch in batches(train_ds, batch_size, _SEED.value + epoch,
                              _DATA_THREADS.value):
@@ -215,15 +218,17 @@ def main(argv: list[str]) -> None:
             result["loss"].backward()
             optimizer.step()
             step += 1
+            num_steps += 1
             for key, value in result.items():
                 sums[key] = sums.get(key, 0.0) + value.item()
             if step % log_every == 0:
                 elapsed = time.time() - start
                 log({"split": "train", "epoch": epoch, "step": step,
                      "lr": lr,
-                     "examples_per_s": log_every * batch_size / elapsed,
-                     **{k: v / log_every for k, v in sums.items()}})
+                     "examples_per_s": num_steps * batch_size / elapsed,
+                     **{k: v / num_steps for k, v in sums.items()}})
                 sums = {}
+                num_steps = 0
                 start = time.time()
 
         torch.save({"model": net.state_dict(),

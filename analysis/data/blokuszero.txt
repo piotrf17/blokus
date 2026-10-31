@@ -1,7 +1,8 @@
 # main:match results for analysis/blokuszero.md, on top of commit fbf0f09 plus
-# the uncommitted Gumbel search. 2-player, single thread, 100 games each.
-# Model: bootstrap-6x32 (zero/data/runs/bootstrap-6x32/model.onnx). The
-# first noise-on zero runs predate the _g name part (gumbel_scale 1).
+# the uncommitted Gumbel search (bootstrap-6x32), or at f82f61c
+# (bootstrap-6x64). 2-player, single thread, 100 games each. Models are
+# zero/data/runs/<name>/model.onnx. The first noise-on zero runs predate the
+# _g name part (gumbel_scale 1).
 result,policy_bootstrap-6x32,random,100,0,0
 result,policy_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,8,0,92
 result,policy_bootstrap-6x32,mcts_i100_c0.25_t1_vl3_rb1,83,0,17
@@ -16,3 +17,9 @@ result,zero_s32_k32_g0_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,58,1,41
 result,zero_s32_k64_g0_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,58,1,41
 result,zero_s64_k16_g1_bootstrap-6x32,mcts_i1000_c0.25_t1_vl3_rb1,4,0,96
 # Stopped early (gumbel_scale 1): zero_s16_k16_g1 0-0-56, zero_s32_k16_g1 1-0-49.
+result,zero_s32_k32_g0_bootstrap-6x64,mcts_i1000_c0.25_t1_vl3_rb1,76,0,24
+result,zero_s128_k32_g0_bootstrap-6x64,mcts_i1000_c0.25_t1_vl3_rb1,93,0,7
+# Deterministic zero vs zero: each repeats one game per seat 50 times, so they
+# measure nothing. Kept as a record.
+# zero_s32_k32_g0_bootstrap-6x64 vs zero_s32_k32_g0_bootstrap-6x32: 50-0-50
+# zero_s32_k32_g0_bootstrap-6x64 vs zero_s128_k32_g0_bootstrap-6x32: 100-0-0

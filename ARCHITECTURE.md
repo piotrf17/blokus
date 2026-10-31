@@ -269,6 +269,13 @@ games each against default MCTS):
 - Gumbel noise (`gumbel_scale` 1) makes the same search weaker than the
   policy alone (0.04–0.155 against 1000-iteration MCTS), so `main:match`
   defaults to 0 and 32 candidates. The noise is for self-play.
+- A 6 x 64 network trained on the same games (`bootstrap-6x64`) has a
+  better policy but no better value head. With search it beats
+  1000-iteration MCTS 0.76 ± 0.08 at 32 simulations and 0.93 ± 0.05 at 128.
+  At equal time, 32 simulations of 6 x 64 are about as strong as 128 of
+  6 x 32 (0.705).
+- Zero-vs-zero matches are meaningless for now: without noise both players
+  are deterministic, so a match repeats the same two games.
 
 ## Binaries (`main/`)
 
@@ -514,7 +521,8 @@ In progress; [`zero/PLAN.md`](zero/PLAN.md) has the design and milestones.
   (orientation, top-left cell), win/draw/loss logits and a score margin. The
   input and policy layouts must match `zero/features.h`. `export_onnx`
   writes a net as ONNX with a dynamic batch size.
-- The command-line tools (`export.py`, `train.py`) use absl flags and
+- The command-line tools (`export.py`, `train.py`, `plot_metrics.py`) use
+  absl flags and
   `app.run`. Only they define flags, so modules can import each other
   without flag clashes; tests parse flags inside `flagsaver`.
 - `export.py` exports a net to ONNX (random weights without
@@ -597,6 +605,9 @@ In progress; [`zero/PLAN.md`](zero/PLAN.md) has the design and milestones.
   policy and outcome accuracy and the margin error in points),
   `checkpoint.pt` (model, config, optimizer) after each epoch, and
   `model.onnx` at the end.
+- `plot_metrics.py` plots runs' `metrics.jsonl` (training and validation
+  curves for each metric, against epochs) as an SVG or PNG. It needs
+  matplotlib, a dev dependency.
 - `zero:generate` plays MCTS self-play games in parallel (one game per
   thread, single-threaded MCTS) and records an example for every move with
   a choice, with the root visit counts as the target. The first 8 moves are

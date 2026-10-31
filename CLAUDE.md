@@ -20,6 +20,7 @@ python3 tools/elo.py match_output*.txt    # Elo from main:match "result," lines
 cd zero/train && UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run pytest
 UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run python export.py --out ../data/models/random_6x32.onnx
 UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run python train.py --data='../data/bootstrap/*.bagz' --out=../data/runs/NAME
+UV_PROJECT_ENVIRONMENT=~/venvs/blokuszero uv run python plot_metrics.py --runs=../data/runs/NAME --out=../../analysis/images/NAME.svg
 bazel run -c opt //zero:evaluator_benchmark -- --model=$PWD/zero/data/models/random_6x32.onnx
 bazel run -c opt //zero:generate -- --num_games=100 --output=$PWD/zero/data/bootstrap/test
 # After changing zero/training.proto (and before the first pytest run):
